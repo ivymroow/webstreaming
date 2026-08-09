@@ -25,20 +25,19 @@ router.get('/popular', asyncHandler(async (req, res) => {
 
 router.get('/movie/:id', asyncHandler(async (req, res) => {
   let { id } = req.params;
-  const { title, year } = req.query;
+  const { title, year, type } = req.query;
   if (id.startsWith('tmdb-')) {
     const tmdbId = id.replace('tmdb-', '');
+    const isTv = type === 'tv';
     try {
-      const { data: movie } = await axios.get(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${TMDB_KEY}`, { timeout: 8000 });
-      if (movie) {
-        const imdbId = movie.imdb_id || '';
-        const { data: tv } = !imdbId ? await axios.get(`https://api.themoviedb.org/3/tv/${tmdbId}?api_key=${TMDB_KEY}`, { timeout: 8000 }).catch(() => ({})) : {};
-        id = imdbId || (tv ? tv.imdb_id || id : id);
+      const ep = isTv ? 'tv' : 'movie';
+      const { data: info } = await axios.get(`https://api.themoviedb.org/3/${ep}/${tmdbId}?api_key=${TMDB_KEY}`, { timeout: 8000 });
+      if (info) {
         res.json({
-          id, title: movie.title || tv?.name || '', year: (movie.release_date || tv?.first_air_date || '').slice(0, 4),
-          poster: movie.poster_path ? 'https://image.tmdb.org/t/p/w500' + movie.poster_path : '',
-          overview: movie.overview || tv?.overview || '', rating: movie.vote_average || null,
-          type: tv?.name ? 'tv' : 'movie', _tmdbId: tmdbId,
+          id: info.imdb_id || id, title: info.title || info.name || '', year: (info.release_date || info.first_air_date || '').slice(0, 4),
+          poster: info.poster_path ? 'https://image.tmdb.org/t/p/w500' + info.poster_path : '',
+          overview: info.overview || '', rating: info.vote_average || null,
+          type: isTv ? 'tv' : 'movie', _tmdbId: tmdbId,
         });
         return;
       }
