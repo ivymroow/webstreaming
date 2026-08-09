@@ -253,7 +253,8 @@ async function playSource(hash,fi,title,embedUrl){
       state._savedThis=true
       const p=state._poster||state.data._poster||state.data.poster||''
       const se=state.data.type==='tv'?selectedSeason:0,ep=state.data.type==='tv'?selectedEpisode:0
-      fetch((state.backendUrl||'')+'/api/progress/save',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({id:state.data.id,title:state._title||state.data.title||'',poster:p,type:state.data.type||'movie',season:se,episode:ep,duration:0,watched:0,status:'watching'})}).then(r=>{state._savedThis=false}).catch(()=>{state._savedThis=false})
+      const saveId=state.data.id||''
+      fetch((state.backendUrl||'')+'/api/progress/save',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({id:saveId,title:state._title||state.data.title||'',poster:p,type:state.data.type||'movie',season:se,episode:ep,duration:0,watched:0,status:'watching'})}).then(r=>{state._savedThis=false}).catch(()=>{state._savedThis=false})
     }
     return
   }
