@@ -165,6 +165,7 @@
   cursor: pointer;
 }
 .episode-controls select:focus { border-color: var(--border-hover); }
+.episode-controls option { background: #141414; color: #fff; }
 .episode-info { margin-top: 8px; font-size: 13px; color: var(--text-muted); line-height: 1.5; }
 
 /* Modals */
