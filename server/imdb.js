@@ -69,11 +69,36 @@ async function details(id, titleHint, yearHint) {
         const { data: sm } = await http.get(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(page)}`, { timeout: 5000 });
         if (sm.extract) result.overview = sm.extract;
         if (!result.poster && sm.thumbnail?.source) result.poster = sm.thumbnail.source;
+        // Fetch full cast from Wikipedia
+        const wikiCast = await getWikipediaCast(page);
+        if (wikiCast.length > result.cast.length) result.cast = wikiCast;
       }
     } catch {}
   }
 
   return result;
+}
+
+async function getWikipediaCast(title) {
+  try {
+    const { data } = await http.get('https://en.wikipedia.org/w/api.php', {
+      params: { action: 'parse', page: title, prop: 'text', section: 'Cast', format: 'json' },
+      timeout: 8000,
+    });
+    const html = data?.parse?.text?.['*'] || '';
+    if (!html) return [];
+    // Extract actor names from cast list items
+    const names = [];
+    const liRegex = /<li>(.*?)<\/li>/g;
+    let match;
+    while ((match = liRegex.exec(html)) !== null) {
+      let text = match[1].replace(/<[^>]+>/g, '').replace(/\s*as\s.*$/i, '').replace(/\[.*?\]/g, '').trim();
+      if (text && text.length < 50 && !text.match(/^(Cast|and |also |with |featuring|guest|co-|starring)/i)) {
+        names.push(text);
+      }
+    }
+    return names.slice(0, 15);
+  } catch { return []; }
 }
 
 async function popularMovies() {
