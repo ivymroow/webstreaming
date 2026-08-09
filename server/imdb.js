@@ -19,7 +19,8 @@ function posterUrl(path) {
   if (typeof path === 'object') path = path.imageUrl || path.url || '';
   if (typeof path !== 'string') return '';
   if (path.startsWith('http')) return path;
-  return path.startsWith('/') ? TMDB_IMG + path : path;
+  if (path.startsWith('/')) return TMDB_IMG + path;
+  return path;
 }
 
 function isShow(qid) { return qid === 'tvSeries' || qid === 'tvMiniSeries' || qid === 'tvMovie'; }
