@@ -30,9 +30,11 @@ router.post('/update', asyncHandler(async (req, res) => {
 }));
 
 router.post('/delete', asyncHandler(async (req, res) => {
-  const c = await require('../supabase').getClient(req._supabaseToken);
-  await c.from('watch_progress').delete().eq('user_id', req.user.id).eq('item_id', req.body.id);
-  res.json({ ok: true });
+  try {
+    const c = await require('../supabase').getClient(req._supabaseToken || '');
+    await c.from('watch_progress').delete().eq('user_id', req.user.id).eq('item_id', req.body.id);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 }));
 
 module.exports = router;

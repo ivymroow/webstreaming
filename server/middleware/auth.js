@@ -21,10 +21,12 @@ async function requireUser(req, res) {
 }
 
 async function requireUserMiddleware(req, res, next) {
-  const user = await requireUser(req, res);
-  if (!user) return;
-  req.user = user;
-  next();
+  try {
+    const user = await requireUser(req, res);
+    if (!user) return;
+    req.user = user;
+    next();
+  } catch (e) { next(e); }
 }
 
 module.exports = { requireUser, requireUserMiddleware };
