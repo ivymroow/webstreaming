@@ -106,7 +106,7 @@ document.addEventListener('contextmenu',e=>{
 })
 function qso(){const cm=qs('#ctxMenu');if(cm)cm.remove()}
 async function moveProgress(id,status){fetch((state.backendUrl||'')+'/api/progress/update',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({id,status})}).catch(()=>{});PL()}
-async function deleteProgress(id){fetch((state.backendUrl||'')+'/api/progress/delete',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({id})}).catch(()=>{});PL()}
+async function deleteProgress(id){Promise.all([fetch((state.backendUrl||'')+'/api/progress/delete',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({id})}),fetch((state.backendUrl||'')+'/api/watchlist/remove',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({id})})]).catch(()=>{});PL()}
 
 function W(){return'<div class="welcome"><div class="welcome-card"><h1 style="color:var(--primary)">web-streaming <span class="beta-tag">beta</span></h1><p>a simple streaming site that simply works.</p><ul class="welcome-list"><li>simply doesn\'t spam ads</li><li>simply doesn\'t break half the time</li><li>simply just works</li></ul><p>everything runs with no budget. hosted on render\'s free tier.</p><p style="font-size:13px"><a href="#" onclick="navigate(\'notice\');return false" style="color:var(--primary)">view project notice</a></p><button class="btn btn-primary" style="margin-top:20px;font-size:16px;padding:14px 48px" onclick="navigate(\'home\')">enter</button></div></div>'}
 function enterSite(){state.view='home';navigate('home')}
@@ -119,12 +119,11 @@ async function L(){
     const[a,b,c]=await Promise.all([api('GET','/api/trending'),api('GET','/api/popular'),api('GET','/api/popular?type=tv')]);qs('#HL').style.display='none'
     if(!a.length&&!b.length&&!c.length){qs('#main').innerHTML='<div class="loading-screen"><p>no backend connected. try searching.</p></div>';return}
     window._trending=a
+    qs('#main').insertAdjacentHTML('beforeend','<div class="section" style="padding-bottom:4px"><div style="display:flex;gap:8px"><button class="profile-tab active" onclick="filterTrending(\'all\',this)">all</button><button class="profile-tab" onclick="filterTrending(\'movie\',this)">movies</button><button class="profile-tab" onclick="filterTrending(\'tv\',this)">tv shows</button></div></div>')
     qs('#main').insertAdjacentHTML('beforeend','<div class="section"><h2 class="section-title">trending</h2><div class="grid" id="g0"></div></div>')
     G('g0',a)
     if(b.length){qs('#main').insertAdjacentHTML('beforeend','<div class="section"><h2 class="section-title">popular movies</h2><div class="grid" id="g1"></div></div>');G('g1',b)}
     if(c.length){qs('#main').insertAdjacentHTML('beforeend','<div class="section"><h2 class="section-title">popular shows</h2><div class="grid" id="g2"></div></div>');G('g2',c)}
-    // Filter bar
-    qs('#main').insertAdjacentHTML('beforeend','<div class="section" style="padding-top:0"><div style="display:flex;gap:8px"><button class="profile-tab active" onclick="filterTrending(\'all\',this)">all</button><button class="profile-tab" onclick="filterTrending(\'movie\',this)">movies</button><button class="profile-tab" onclick="filterTrending(\'tv\',this)">tv shows</button></div></div>')
   }catch(e){qs('#main').innerHTML='<div class="error-view"><p>'+esc(e.message)+'</p></div>'}
 }
 
