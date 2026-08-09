@@ -94,4 +94,4 @@ async function refreshSession(refreshToken) {
   return { token: data.session.access_token, refresh: data.session.refresh_token };
 }
 
-module.exports = { signUp, signIn, getUserFromToken, refreshSession, saveProgress, getProgress, listProgress, addToWatchlist, removeFromWatchlist, getWatchlist, isInWatchlist };
+module.exports = { signUp, signIn, getUserFromToken, refreshSession, getClient, saveProgress, getProgress, listProgress, addToWatchlist, removeFromWatchlist, getWatchlist, isInWatchlist };
