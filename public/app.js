@@ -249,7 +249,8 @@ async function playSource(hash,fi,title,embedUrl){
     // auto-save as watching
     if(state.user&&state.data?.id){
       const se=state.data.type==='tv'?selectedSeason:0,ep=state.data.type==='tv'?selectedEpisode:0
-      fetch((state.backendUrl||'')+'/api/progress/save',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({id:state.data.id,title:state._title||state.data.title||'',poster:state._poster||state.data._poster||'',type:state.data.type||'movie',season:se,episode:ep,duration:0,watched:0,status:'watching'})}).catch(()=>{})
+      const p=state._poster||state.data._poster||state.data.poster||''
+      fetch((state.backendUrl||'')+'/api/progress/save',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({id:state.data.id,title:state._title||state.data.title||'',poster:p,type:state.data.type||'movie',season:se,episode:ep,duration:0,watched:0,status:'watching'})}).catch(()=>{})
     }
     return
   }
@@ -272,7 +273,7 @@ function getDetailHash(){
 function ifr(url,title){
   document.title=title+' - web-streaming'
   const u=url.replace(/'/g,'%27')
-  return'<div class="player-container"><button class="player-back" onclick="cp()"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>back</button><div class="player-wrapper"><iframe src="'+u+'" allow="autoplay;encrypted-media;fullscreen" allowfullscreen style="position:absolute;inset:0;width:100%;height:100%;border:none;background:#000"></iframe></div></div>'
+  return'<div class="player-container"><button class="player-back" onclick="cp()"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>back</button><div class="player-wrapper"><iframe src="'+u+'" allow="autoplay;encrypted-media;fullscreen" allowfullscreen sandbox="allow-scripts allow-same-origin allow-forms allow-presentation" style="position:absolute;inset:0;width:100%;height:100%;border:none;background:#000"></iframe></div></div>'
 }
 
 async function streamAndPlay(hash,fi,dlId,ps,pl){
