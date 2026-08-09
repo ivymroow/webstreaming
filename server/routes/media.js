@@ -48,22 +48,22 @@ router.get('/movie/:id', asyncHandler(async (req, res) => {
 }));
 
 router.get('/movie/:id/sources', asyncHandler(async (req, res) => {
-  let id = req.params.id;
+  let id = req.params.id, tmdb = null;
   if (id.startsWith('tmdb-')) {
-    const tmdbId = id.replace('tmdb-', '');
+    tmdb = id.replace('tmdb-', '');
     const imdb = await new Promise(resolve => {
-      axios.get(`https://api.themoviedb.org/3/movie/${tmdbId}`, { params: { api_key: TMDB_KEY }, timeout: 8000 })
+      axios.get(`https://api.themoviedb.org/3/movie/${tmdb}`, { params: { api_key: TMDB_KEY }, timeout: 8000 })
         .then(r => resolve(r.data.imdb_id)).catch(() => resolve(null));
     });
     if (!imdb) {
       const tvImdb = await new Promise(resolve => {
-        axios.get(`https://api.themoviedb.org/3/tv/${tmdbId}`, { params: { api_key: TMDB_KEY }, timeout: 8000 })
+        axios.get(`https://api.themoviedb.org/3/tv/${tmdb}`, { params: { api_key: TMDB_KEY }, timeout: 8000 })
           .then(r => resolve(r.data.imdb_id)).catch(() => resolve(null));
       });
       id = tvImdb || id;
     } else { id = imdb; }
   }
-  res.json(await embeds.getEmbeds(id, id.replace('tmdb-', '')));
+  res.json(await embeds.getEmbeds(id, tmdb));
 }));
 
 router.get('/show/:id/episodes', asyncHandler(async (req, res) => {
@@ -71,18 +71,18 @@ router.get('/show/:id/episodes', asyncHandler(async (req, res) => {
 }));
 
 router.get('/show/:id/sources', asyncHandler(async (req, res) => {
-  let id = req.params.id;
+  let id = req.params.id, tmdb = null;
   const { season, episode } = req.query;
   if (!season || !episode) return res.json([]);
   if (id.startsWith('tmdb-')) {
-    const tmdbId = id.replace('tmdb-', '');
+    tmdb = id.replace('tmdb-', '');
     const imdb = await new Promise(resolve => {
-      axios.get(`https://api.themoviedb.org/3/tv/${tmdbId}`, { params: { api_key: TMDB_KEY }, timeout: 8000 })
+      axios.get(`https://api.themoviedb.org/3/tv/${tmdb}`, { params: { api_key: TMDB_KEY }, timeout: 8000 })
         .then(r => resolve(r.data.imdb_id)).catch(() => resolve(null));
     });
     id = imdb || id;
   }
-  res.json(await embeds.getEmbeds(id, null, Number(season), Number(episode)));
+  res.json(await embeds.getEmbeds(id, tmdb, Number(season), Number(episode)));
 }));
 
 module.exports = router;
