@@ -151,7 +151,7 @@ function sectionHTML(title,items){return'<div class="section"><h2 class="section
 function S(){return'<div class="section"><h2 class="section-title">Results for "'+esc(state.query)+'"</h2><div class="grid" id="sg"></div><div class="loading-screen" id="sL"><div class="spinner"></div><p>Searching...</p></div></div>'}
 async function LS(){try{const r=await api('GET','/api/search?q='+encodeURIComponent(state.query));qs('#sL').style.display='none';G('sg',r)}catch(e){qs('#main').innerHTML=E(e.message)}}
 
-function D(){return'<div class="detail"><button class="detail-back" onclick="navigate(\'home\')"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg> Back</button><div class="loading-screen" id="dL"><div class="spinner"></div><p>Loading...</p></div></div>'}
+function D(){state._savedThis=false;return'<div class="detail"><button class="detail-back" onclick="navigate(\'home\')"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg> Back</button><div class="loading-screen" id="dL"><div class="spinner"></div><p>Loading...</p></div></div>'}
 
 async function LD(){
   const{id,type,title:t,year:y,season:s,episode:ep}=state.data
@@ -249,10 +249,11 @@ async function playSource(hash,fi,title,embedUrl){
     history.replaceState(null,'','#'+getDetailHash()+'&hash='+hash)
     state.view='player';document.title=title+' - web-streaming';qs('#app').innerHTML=ifr(embedUrl,title)
     // auto-save as watching
-    if(state.user&&state.data?.id){
-      const se=state.data.type==='tv'?selectedSeason:0,ep=state.data.type==='tv'?selectedEpisode:0
+    if(state.user&&state.data?.id&&!state._savedThis){
+      state._savedThis=true
       const p=state._poster||state.data._poster||state.data.poster||''
-      fetch((state.backendUrl||'')+'/api/progress/save',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({id:state.data.id,title:state._title||state.data.title||'',poster:p,type:state.data.type||'movie',season:se,episode:ep,duration:0,watched:0,status:'watching'})}).catch(()=>{})
+      const se=state.data.type==='tv'?selectedSeason:0,ep=state.data.type==='tv'?selectedEpisode:0
+      fetch((state.backendUrl||'')+'/api/progress/save',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({id:state.data.id,title:state._title||state.data.title||'',poster:p,type:state.data.type||'movie',season:se,episode:ep,duration:0,watched:0,status:'watching'})}).then(r=>{state._savedThis=false}).catch(()=>{state._savedThis=false})
     }
     return
   }
