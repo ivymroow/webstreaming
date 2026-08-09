@@ -76,13 +76,36 @@ main {
   gap: 8px;
 }
 
-@media (min-width: 1400px) { .grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); } }
 @media (max-width: 768px) { 
   .grid { grid-template-columns: repeat(3, 1fr); gap: 6px; } 
-  header { padding: 0 16px; }
-  .section { padding: 16px; }
+  header { padding: 0 12px; }
+  .section { padding: 16px 12px; }
+  .header-center { max-width: 200px; }
+  .search-box input { font-size: 13px; }
+  .logo { font-size: 18px; }
+  .hero { height: 50vh; min-height: 300px; padding: 32px 16px; }
+  .hero-logo { font-size: 24px; }
+  .hero-overview { font-size: 13px; -webkit-line-clamp: 2; }
+  .detail-back { font-size: 13px; padding: 6px 12px; }
+  .detail { padding: 0 12px 16px; }
+  .btn { padding: 10px 20px; font-size: 13px; }
+  .section-title { font-size: 18px; }
 }
-@media (max-width: 480px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 480px) { 
+  .grid { grid-template-columns: repeat(2, 1fr); gap: 4px; } 
+  .header-center { max-width: 150px; }
+  .search-box input { font-size: 12px; padding: 8px 12px 8px 36px; }
+  .hero { height: 40vh; min-height: 240px; }
+  .hero-logo { font-size: 20px; }
+  .card-title { font-size: 11px; }
+  .card-badge { font-size: 9px; padding: 2px 6px; }
+  .detail-hero { flex-direction: column; align-items: center; }
+  .detail-poster { width: 140px; }
+  .detail-title { font-size: 22px; }
+  .episode-controls { flex-direction: column; }
+  .player-back { font-size: 12px; padding: 6px 12px; top: 8px; left: 8px; }
+  .player-loading p { font-size: 14px; }
+}
 
 /* Loading */
 .loading-screen {

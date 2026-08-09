@@ -208,3 +208,15 @@
   transition: opacity var(--transition-fast);
 }
 .kbd-hint.show { opacity: 1; }
+
+@media (max-width: 768px) {
+  .ctrl-btn { width: 44px; height: 44px; font-size: 18px; }
+  .time-display { font-size: 11px; }
+  .player-back { font-size: 13px; padding: 8px 14px; }
+  .vol-group:hover .vol-slider { width: 48px; }
+}
+@media (max-width: 480px) {
+  .controls-row { gap: 6px; }
+  .ctrl-btn { width: 40px; height: 40px; }
+  #customControls { padding: 36px 12px 8px; }
+}

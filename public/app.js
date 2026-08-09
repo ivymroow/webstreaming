@@ -154,7 +154,7 @@ function D(){return'<div class="detail"><button class="detail-back" onclick="nav
 async function LD(){
   const{id,type,title:t,year:y,season:s,episode:ep}=state.data
   const tHint=t||'',yHint=y||''
-  if(s&&ep){selectedSeason=s;selectedEpisode=ep}
+  if(s&&ep&&type==='tv'){selectedSeason=s;selectedEpisode=ep}
   try{
     const d=await api('GET','/api/movie/'+id+'?type='+type+'&title='+encodeURIComponent(tHint)+'&year='+yHint)
     state.data._title=d.title||'';state.data._year=d.year||'';state.data._poster=d.poster||''

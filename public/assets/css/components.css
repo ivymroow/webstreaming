@@ -318,4 +318,18 @@
   .detail-poster { width: 180px; }
   .hero-logo { font-size: 32px; }
   .profile { padding: 16px; }
+  .search-box { flex: 1; }
+  .btn { padding: 10px 20px; font-size: 14px; }
+  .source-item { flex-wrap: wrap; gap: 8px; }
+  .source-info { flex-wrap: wrap; gap: 8px; }
+  .profile-tabs { flex-wrap: wrap; }
+}
+@media (max-width: 480px) {
+  .detail-poster { width: 120px; }
+  .detail-title { font-size: 20px; }
+  .profile h1 { font-size: 22px; }
+  .profile-tab { font-size: 12px; padding: 6px 12px; }
+  .welcome-card h1 { font-size: 24px; }
+  .welcome-list { font-size: 13px; }
+  .modal-content { max-width: 90vw; }
 }
