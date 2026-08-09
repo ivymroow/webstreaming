@@ -33,8 +33,12 @@ router.get('/movie/:id', asyncHandler(async (req, res) => {
       const ep = isTv ? 'tv' : 'movie';
       const { data: info } = await axios.get(`https://api.themoviedb.org/3/${ep}/${tmdbId}?api_key=${K}`, { timeout: 8000 });
       if (info) {
+        let imdbId = info.imdb_id;
+        if (!imdbId) {
+          try { const ext = await axios.get(`https://api.themoviedb.org/3/${ep}/${tmdbId}/external_ids?api_key=${K}`, { timeout: 8000 }); imdbId = ext.data.imdb_id; } catch {}
+        }
         res.json({
-          id: info.imdb_id || id, title: info.title || info.name || '', year: (info.release_date || info.first_air_date || '').slice(0, 4),
+          id: imdbId || id, title: info.title || info.name || '', year: (info.release_date || info.first_air_date || '').slice(0, 4),
           poster: info.poster_path ? 'https://image.tmdb.org/t/p/w500' + info.poster_path : '',
           overview: info.overview || '', rating: info.vote_average || null,
           type: isTv ? 'tv' : 'movie', _tmdbId: tmdbId,
@@ -47,16 +51,20 @@ router.get('/movie/:id', asyncHandler(async (req, res) => {
   catch { res.json({ id, title: title || id, year: year || null, poster: '', overview: '', genres: [], runtime: null, cast: [], rating: null, type: id.startsWith('tt') ? 'movie' : 'tv' }); }
 }));
 
+async function convertTmdb(tmdb, type) {
+  try {
+    const { data } = await axios.get(`https://api.themoviedb.org/3/${type}/${tmdb}/external_ids?api_key=${K}`, { timeout: 8000 });
+    return data.imdb_id || null;
+  } catch { return null; }
+}
+
 router.get('/movie/:id/sources', asyncHandler(async (req, res) => {
-  let id = req.params.id, tmdb = null;
+  let id = req.params.id;
   if (id.startsWith('tmdb-')) {
-    tmdb = id.replace('tmdb-', '');
-    try { const r = await axios.get(`https://api.themoviedb.org/3/movie/${tmdb}?api_key=${K}`, { timeout: 8000 }); if (r.data.imdb_id) id = r.data.imdb_id; } catch {}
-    if (id.startsWith('tmdb-')) {
-      try { const r = await axios.get(`https://api.themoviedb.org/3/tv/${tmdb}?api_key=${K}`, { timeout: 8000 }); if (r.data.imdb_id) id = r.data.imdb_id; } catch {}
-    }
+    const tmdb = id.replace('tmdb-', '');
+    id = await convertTmdb(tmdb, 'movie') || await convertTmdb(tmdb, 'tv') || id;
   }
-  res.json(await embeds.getEmbeds(id, tmdb));
+  res.json(await embeds.getEmbeds(id, null));
 }));
 
 router.get('/show/:id/episodes', asyncHandler(async (req, res) => {
@@ -64,14 +72,13 @@ router.get('/show/:id/episodes', asyncHandler(async (req, res) => {
 }));
 
 router.get('/show/:id/sources', asyncHandler(async (req, res) => {
-  let id = req.params.id, tmdb = null;
+  let id = req.params.id;
   const { season, episode } = req.query;
   if (!season || !episode) return res.json([]);
   if (id.startsWith('tmdb-')) {
-    tmdb = id.replace('tmdb-', '');
-    try { const r = await axios.get(`https://api.themoviedb.org/3/tv/${tmdb}?api_key=${K}`, { timeout: 8000 }); if (r.data.imdb_id) id = r.data.imdb_id; } catch {}
+    id = await convertTmdb(id.replace('tmdb-', ''), 'tv') || id;
   }
-  res.json(await embeds.getEmbeds(id, tmdb, Number(season), Number(episode)));
+  res.json(await embeds.getEmbeds(id, null, Number(season), Number(episode)));
 }));
 
 module.exports = router;
