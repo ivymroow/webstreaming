@@ -116,12 +116,15 @@ function H(){return'<div class="loading-screen" id="HL"><div class="spinner"></d
 async function L(){
   try{
     if(state.user){(async()=>{try{const cw=await api('GET','/api/progress/list?status=watching');if(cw?.length){qs('#main').insertAdjacentHTML('afterbegin','<div class="section"><h2 class="section-title">continue watching</h2><div class="grid" id="cwGrid"></div></div>');G('cwGrid',cw.map(i=>({id:i.item_id,title:i.title,poster:i.poster,year:null,type:i.type,progress:i.watched&&i.duration?i.watched/i.duration:0})))}}catch{}})()}
-    const a=await api('GET','/api/trending');qs('#HL').style.display='none'
-    if(!a.length){qs('#HL').outerHTML='<div class="loading-screen"><p>no backend connected. try searching.</p></div>';return}
+    const[a,b,c]=await Promise.all([api('GET','/api/trending'),api('GET','/api/popular'),api('GET','/api/popular?type=tv')]);qs('#HL').style.display='none'
+    if(!a.length&&!b.length&&!c.length){qs('#main').innerHTML='<div class="loading-screen"><p>no backend connected. try searching.</p></div>';return}
     window._trending=a
-    // Filter bar
-    qs('#main').insertAdjacentHTML('beforeend','<div class="section" style="padding-bottom:0"><div style="display:flex;gap:8px;margin-bottom:16px"><button class="profile-tab active" onclick="filterTrending(\'all\',this)">all</button><button class="profile-tab" onclick="filterTrending(\'movie\',this)">movies</button><button class="profile-tab" onclick="filterTrending(\'tv\',this)">tv shows</button></div><div class="grid" id="g0"></div></div>')
+    qs('#main').insertAdjacentHTML('beforeend','<div class="section"><h2 class="section-title">trending</h2><div class="grid" id="g0"></div></div>')
     G('g0',a)
+    if(b.length){qs('#main').insertAdjacentHTML('beforeend','<div class="section"><h2 class="section-title">popular movies</h2><div class="grid" id="g1"></div></div>');G('g1',b)}
+    if(c.length){qs('#main').insertAdjacentHTML('beforeend','<div class="section"><h2 class="section-title">popular shows</h2><div class="grid" id="g2"></div></div>');G('g2',c)}
+    // Filter bar
+    qs('#main').insertAdjacentHTML('beforeend','<div class="section" style="padding-top:0"><div style="display:flex;gap:8px"><button class="profile-tab active" onclick="filterTrending(\'all\',this)">all</button><button class="profile-tab" onclick="filterTrending(\'movie\',this)">movies</button><button class="profile-tab" onclick="filterTrending(\'tv\',this)">tv shows</button></div></div>')
   }catch(e){qs('#main').innerHTML='<div class="error-view"><p>'+esc(e.message)+'</p></div>'}
 }
 

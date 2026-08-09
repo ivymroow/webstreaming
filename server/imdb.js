@@ -104,7 +104,7 @@ async function trending() {
     const { data } = await axios.get(`https://api.themoviedb.org/3/trending/all/week?api_key=${TMDB_KEY}`, { timeout: 10000 });
     const items = (data.results || []).map(i => tmdbToItem(i, i.media_type));
     items.forEach(i => { i.id = 'tmdb-' + i._tmdbId; });
-    return items.filter(i => i.poster && i.title).slice(0, 24);
+    return items.filter(i => i.poster && i.title).slice(0, 40);
   } catch (e) { console.error('trending failed:', e.message); return []; }
 }
 
@@ -113,7 +113,7 @@ async function popularMovies() {
     const { data } = await axios.get(`https://api.themoviedb.org/3/movie/popular?api_key=${TMDB_KEY}`, { timeout: 10000 });
     const items = (data.results || []).map(i => tmdbToItem(i, 'movie'));
     items.forEach(i => { i.id = 'tmdb-' + i._tmdbId; });
-    return items.filter(i => i.poster && i.title).slice(0, 20);
+    return items.filter(i => i.poster && i.title).slice(0, 30);
   } catch { return []; }
 }
 
@@ -122,7 +122,7 @@ async function popularShows() {
     const { data } = await axios.get(`https://api.themoviedb.org/3/tv/popular?api_key=${TMDB_KEY}`, { timeout: 10000 });
     const items = (data.results || []).map(i => tmdbToItem(i, 'tv'));
     items.forEach(i => { i.id = 'tmdb-' + i._tmdbId; });
-    return items.filter(i => i.poster && i.title).slice(0, 20);
+    return items.filter(i => i.poster && i.title).slice(0, 30);
   } catch { return []; }
 }
 
