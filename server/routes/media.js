@@ -24,8 +24,26 @@ router.get('/popular', asyncHandler(async (req, res) => {
 }));
 
 router.get('/movie/:id', asyncHandler(async (req, res) => {
-  const { id } = req.params;
+  let { id } = req.params;
   const { title, year } = req.query;
+  if (id.startsWith('tmdb-')) {
+    const tmdbId = id.replace('tmdb-', '');
+    try {
+      const { data: movie } = await axios.get(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${TMDB_KEY}`, { timeout: 8000 });
+      if (movie) {
+        const imdbId = movie.imdb_id || '';
+        const { data: tv } = !imdbId ? await axios.get(`https://api.themoviedb.org/3/tv/${tmdbId}?api_key=${TMDB_KEY}`, { timeout: 8000 }).catch(() => ({})) : {};
+        id = imdbId || (tv ? tv.imdb_id || id : id);
+        res.json({
+          id, title: movie.title || tv?.name || '', year: (movie.release_date || tv?.first_air_date || '').slice(0, 4),
+          poster: movie.poster_path ? 'https://image.tmdb.org/t/p/w500' + movie.poster_path : '',
+          overview: movie.overview || tv?.overview || '', rating: movie.vote_average || null,
+          type: tv?.name ? 'tv' : 'movie', _tmdbId: tmdbId,
+        });
+        return;
+      }
+    } catch {}
+  }
   try { res.json(await metadata.details(id, title, year)); }
   catch { res.json({ id, title: title || id, year: year || null, poster: '', overview: '', genres: [], runtime: null, cast: [], rating: null, type: id.startsWith('tt') ? 'movie' : 'tv' }); }
 }));
