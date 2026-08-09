@@ -86,9 +86,9 @@ async function details(id, titleHint, yearHint) {
   return result;
 }
 
-async function tmdbToItem(item, mediaType) {
+function tmdbToItem(item, mediaType) {
   return {
-    id: '', // will be set below
+    id: '',
     title: item.title || item.name || '',
     year: (item.release_date || item.first_air_date || '').slice(0, 4) || null,
     poster: posterUrl(item.poster_path),
@@ -101,22 +101,16 @@ async function tmdbToItem(item, mediaType) {
 
 async function trending() {
   try {
-    const { data } = await http.get('https://api.themoviedb.org/3/trending/all/week', {
-      params: { api_key: TMDB_KEY },
-      timeout: 10000,
-    });
+    const { data } = await axios.get(`https://api.themoviedb.org/3/trending/all/week?api_key=${TMDB_KEY}`, { timeout: 10000 });
     const items = (data.results || []).map(i => tmdbToItem(i, i.media_type));
     items.forEach(i => { i.id = 'tmdb-' + i._tmdbId; });
     return items.filter(i => i.poster && i.title).slice(0, 24);
-  } catch (e) { console.log('trending error:', e.message); return []; }
+  } catch (e) { console.error('trending failed:', e.message); return []; }
 }
 
 async function popularMovies() {
   try {
-    const { data } = await http.get('https://api.themoviedb.org/3/movie/popular', {
-      params: { api_key: TMDB_KEY },
-      timeout: 10000,
-    });
+    const { data } = await axios.get(`https://api.themoviedb.org/3/movie/popular?api_key=${TMDB_KEY}`, { timeout: 10000 });
     const items = (data.results || []).map(i => tmdbToItem(i, 'movie'));
     items.forEach(i => { i.id = 'tmdb-' + i._tmdbId; });
     return items.filter(i => i.poster && i.title).slice(0, 20);
@@ -125,10 +119,7 @@ async function popularMovies() {
 
 async function popularShows() {
   try {
-    const { data } = await http.get('https://api.themoviedb.org/3/tv/popular', {
-      params: { api_key: TMDB_KEY },
-      timeout: 10000,
-    });
+    const { data } = await axios.get(`https://api.themoviedb.org/3/tv/popular?api_key=${TMDB_KEY}`, { timeout: 10000 });
     const items = (data.results || []).map(i => tmdbToItem(i, 'tv'));
     items.forEach(i => { i.id = 'tmdb-' + i._tmdbId; });
     return items.filter(i => i.poster && i.title).slice(0, 20);
