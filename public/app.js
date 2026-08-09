@@ -106,7 +106,7 @@ document.addEventListener('contextmenu',e=>{
 })
 function qso(){const cm=qs('#ctxMenu');if(cm)cm.remove()}
 async function moveProgress(id,status){fetch((state.backendUrl||'')+'/api/progress/update',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({id,status})}).catch(()=>{});PL()}
-async function deleteProgress(id){Promise.all([fetch((state.backendUrl||'')+'/api/progress/delete',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({id})}),fetch((state.backendUrl||'')+'/api/watchlist/remove',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({id})})]).catch(()=>{});PL()}
+async function deleteProgress(id){try{await Promise.all([fetch((state.backendUrl||'')+'/api/progress/delete',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({id})}),fetch((state.backendUrl||'')+'/api/watchlist/remove',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({id})})])}catch{};PL()}
 
 function W(){return'<div class="welcome"><div class="welcome-card"><h1 style="color:var(--primary)">web-streaming <span class="beta-tag">beta</span></h1><p>a simple streaming site that simply works.</p><ul class="welcome-list"><li>simply doesn\'t spam ads</li><li>simply doesn\'t break half the time</li><li>simply just works</li></ul><p>everything runs with no budget. hosted on render\'s free tier.</p><p style="font-size:13px"><a href="#" onclick="navigate(\'notice\');return false" style="color:var(--primary)">view project notice</a></p><button class="btn btn-primary" style="margin-top:20px;font-size:16px;padding:14px 48px" onclick="navigate(\'home\')">enter</button></div></div>'}
 function enterSite(){state.view='home';navigate('home')}
@@ -362,7 +362,7 @@ function initPlayer(video,baseUrl,infoHash){
 
 function fmtTime(s){if(!s||!isFinite(s))return'0:00';const m=Math.floor(s/60),sec=Math.floor(s%60);return m+':'+(sec<10?'0':'')+sec}
 function perr(msg){const pw=qs('#pw');if(pw)pw.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;padding:40px;text-align:center"><p style="color:#f87171;font-size:16px">'+esc(msg)+'</p><button class="btn btn-primary" onclick="cp()">Go Back</button></div>'}
-function cp(){if(state.player)state.player=null;if(state.prevState){const d=state.prevState.data||{};let h='id='+(d.id||'');if(d.type==='tv')h+='&type=tv';if(d.title)h+='&t='+encodeURIComponent(d.title);if(d.year)h+='&y='+d.year;if(selectedSeason&&selectedEpisode)h+='&s='+selectedSeason+'&e='+selectedEpisode;history.replaceState(null,'','#'+h);state.view=state.prevState.view;state.data=state.prevState.data;state.prevState=null;render()}else location.reload()}
+function cp(){state._savedThis=false;if(state.player)state.player=null;if(state.prevState){const d=state.prevState.data||{};let h='id='+(d.id||'');if(d.type==='tv')h+='&type=tv';if(d.title)h+='&t='+encodeURIComponent(d.title);if(d.year)h+='&y='+d.year;if(selectedSeason&&selectedEpisode)h+='&s='+selectedSeason+'&e='+selectedEpisode;history.replaceState(null,'','#'+h);state.view=state.prevState.view;state.data=state.prevState.data;state.prevState=null;render()}else location.reload()}
 
 function G(id,items){
   const el=qs('#'+id);if(!items||!items.length){el.innerHTML='';return}
