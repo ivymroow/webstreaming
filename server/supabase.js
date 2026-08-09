@@ -44,7 +44,7 @@ async function saveProgress(userId, item, token) {
     user_id: userId, item_id: id, title, poster, type,
     season: se, episode: ep,
     duration: duration || 0, watched: watched || 0,
-    status: status || 'watching', updated_at: new Date().toISOString(),
+    status: status || 'watching',
   });
   if (error) throw new Error(error.message);
 }
