@@ -12,7 +12,7 @@ async function getEmbeds(imdbId, tmdbId, season, episode) {
     embeds.push({ name: 'Smashy', url: `https://embed.smashystream.com/playere.php?imdb=${id}` });
   }
 
-  return embeds.map((e, i) => ({ provider: e.name, embedUrl: e.url, hash: 'embed-' + i, quality: 'HD', seeds: 999, peers: 0, size: '', fileIndex: 0 }));
+  return embeds.map((e, i) => ({ provider: e.name, embedUrl: e.url, hash: 'embed-' + i, quality: 'HD', fileIndex: 0 }));
 }
 
 module.exports = { getEmbeds };

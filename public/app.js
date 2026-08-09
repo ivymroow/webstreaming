@@ -37,7 +37,7 @@ async function standalone(a){
 }
 
 async function imdbDetails(id){const k='d:'+id;const c=sessionStorage.getItem(k);if(c)return JSON.parse(c);let d={id,title:'',year:null,poster:'',overview:'',genres:[],runtime:null,cast:[],rating:null,type:'movie'};try{const r=await fetch('https://v3.sg.media-imdb.com/suggestion/x/'+id+'.json');const j=await r.json();const i=j.d?.find(x=>x.id===id)||j.d?.[0];if(i){d.title=i.l||'';d.year=i.y||null;d.poster=i.i?.[0]||'';d.cast=i.s?i.s.split(', '):[];d.type=(i.qid==='tvSeries'||i.qid==='tvMiniSeries')?'tv':'movie'}}catch{}try{const r=await fetch('https://en.wikipedia.org/api/rest_v1/page/summary/'+encodeURIComponent(d.title+(d.year?' '+d.year:'')+' film'));const w=await r.json();if(w.extract)d.overview=w.extract;if(!d.poster&&w.thumbnail?.source)d.poster=w.thumbnail.source}catch{}sessionStorage.setItem(k,JSON.stringify(d));return d}
-async function srcs(title,year,imdbId){const k='s:'+(imdbId||title);const c=sessionStorage.getItem(k);if(c)return JSON.parse(c);let src=[];try{const r=await fetch('https://'+atob('dG9ycmVudGlvLnN0cmVtLmZ1bg==')+'/stream/movie/'+imdbId+'.json');const d=await r.json();if(d?.streams)for(const s of d.streams){const seedM=s.title?.match(/👤\s*(\d+)/);const sizeM=s.title?.match(/💾\s*([\d.]+)\s*(GB|MB)/);src.push({provider:'TSX',quality:((s.title||s.name||'').includes('4K')?'4K':(s.title||'').includes('1080')?'1080p':(s.title||'').includes('720')?'720p':'Unknown'),size:sizeM?sizeM[1]+' '+sizeM[2]:'',seeds:seedM?parseInt(seedM[1]):0,peers:0,hash:s.infoHash,fileIndex:s.fileIdx||0})}}catch{}src.sort((a,b)=>(b.seeds||0)-(a.seeds||0));sessionStorage.setItem(k,JSON.stringify(src));return src}
+async function srcs(title,year,imdbId){return[]}
 function qs(s){return document.querySelector(s)}
 function esc(s){if(!s)return'';const d=document.createElement('div');d.textContent=s;return d.innerHTML}
 function img(p){return p||''}
@@ -172,9 +172,7 @@ async function loadEpisodeSources(id,season,episode){
   const q='S'+String(season).padStart(2,'0')+'E'+String(episode).padStart(2,'0')
   let srcs=null
   try{srcs=await api('GET','/api/show/'+id+'/sources?title='+encodeURIComponent(title)+'&year='+year+'&type=tv&season='+season+'&episode='+episode+'&_='+Date.now())}catch{}
-  if(!srcs||!srcs.length){try{const r=await fetch('https://'+atob('dG9ycmVudGlvLnN0cmVtLmZ1bg==')+'/stream/series/'+id+':'+season+':'+episode+'.json');const d=await r.json();if(d?.streams)srcs=d.streams.map(x=>{const t=x.title||'',sM=t.match(/👤\s*(\d+)/),zM=t.match(/💾\s*([\d.]+)\s*(GB|MB)/);return{provider:'TSX',quality:t.includes('4K')?'4K':t.includes('1080')?'1080p':t.includes('720')?'720p':'Unknown',size:zM?zM[1]+' '+zM[2]:'',seeds:sM?parseInt(sM[1]):0,peers:0,hash:x.infoHash,fileIndex:x.fileIdx||0}})}catch{}}
-  if(!srcs||!srcs.length){list.innerHTML='<p style="color:var(--text-muted);font-size:14px;padding:8px 0">No sources for '+esc(title)+' '+q+'.</p>';return}
-  srcs.sort((a,b)=>(b.seeds||0)-(a.seeds||0))
+  if(!srcs||!srcs.length){list.innerHTML='<p style="color:var(--text-muted);font-size:14px;padding:8px 0">no sources for '+esc(title)+' '+q+'.</p>';return}
   state._sources=srcs
   list.innerHTML=srcs.map(src=>{const eu=',\''+esc(src.embedUrl)+'\'';return'<div class="source-item" id="src-'+src.hash+'"><div class="source-info"><span class="source-quality">HD</span><span style="color:var(--text-muted);font-size:11px">'+(src.provider||'')+'</span></div><button class="source-play" style="background:#4ade80;color:#000" onclick="playSource(\''+src.hash+'\',0,\''+esc(title)+' '+q+'\''+eu+')">▶ Play</button></div>'}).join('')
   if(state.data?._playHash){const ph=state.data._playHash;state.data._playHash=null;setTimeout(()=>{const b=qs('#src-'+ph+' .source-play');if(b)b.click()},100)}
@@ -227,7 +225,7 @@ function playerHTML(title){return'<div class="player-container"><button class="p
 async function playBest(){
   if(!state._sources||!state._sources.length)return
   if(state.mode!=='backend'){alert('Backend required');return}
-  const alive=state._sources.filter(s=>(s.seeds||0)>0||(s.peers||0)>0)
+  const alive=state._sources.filter(s=>s.embedUrl)
   if(!alive.length){alert('No viable sources');return}
   const title=state.data?._title||''
   state.view='player';document.title=title+' - web-streaming';qs('#app').innerHTML=playerHTML(title)
