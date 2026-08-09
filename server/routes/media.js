@@ -59,12 +59,12 @@ async function convertTmdb(tmdb, type) {
 }
 
 router.get('/movie/:id/sources', asyncHandler(async (req, res) => {
-  let id = req.params.id;
+  let id = req.params.id, tmdb = null;
   if (id.startsWith('tmdb-')) {
-    const tmdb = id.replace('tmdb-', '');
+    tmdb = id.replace('tmdb-', '');
     id = await convertTmdb(tmdb, 'movie') || await convertTmdb(tmdb, 'tv') || id;
   }
-  res.json(await embeds.getEmbeds(id, null));
+  res.json(await embeds.getEmbeds(id, tmdb));
 }));
 
 router.get('/show/:id/episodes', asyncHandler(async (req, res) => {
@@ -72,13 +72,14 @@ router.get('/show/:id/episodes', asyncHandler(async (req, res) => {
 }));
 
 router.get('/show/:id/sources', asyncHandler(async (req, res) => {
-  let id = req.params.id;
+  let id = req.params.id, tmdb = null;
   const { season, episode } = req.query;
   if (!season || !episode) return res.json([]);
   if (id.startsWith('tmdb-')) {
-    id = await convertTmdb(id.replace('tmdb-', ''), 'tv') || id;
+    tmdb = id.replace('tmdb-', '');
+    id = await convertTmdb(tmdb, 'tv') || id;
   }
-  res.json(await embeds.getEmbeds(id, null, Number(season), Number(episode)));
+  res.json(await embeds.getEmbeds(id, tmdb, Number(season), Number(episode)));
 }));
 
 module.exports = router;
