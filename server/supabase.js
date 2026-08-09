@@ -88,4 +88,10 @@ async function isInWatchlist(userId, itemId, token) {
   return !!data;
 }
 
-module.exports = { signUp, signIn, getUserFromToken, saveProgress, getProgress, listProgress, addToWatchlist, removeFromWatchlist, getWatchlist, isInWatchlist };
+async function refreshSession(refreshToken) {
+  const { data, error } = await sb.auth.refreshSession({ refresh_token: refreshToken });
+  if (error) throw new Error(error.message);
+  return { token: data.session.access_token, refresh: data.session.refresh_token };
+}
+
+module.exports = { signUp, signIn, getUserFromToken, refreshSession, saveProgress, getProgress, listProgress, addToWatchlist, removeFromWatchlist, getWatchlist, isInWatchlist };
