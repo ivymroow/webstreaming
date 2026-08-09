@@ -176,7 +176,7 @@ async function loadEpisodeSources(id,season,episode){
   try{srcs=await api('GET','/api/show/'+id+'/sources?title='+encodeURIComponent(title)+'&year='+year+'&type=tv&season='+season+'&episode='+episode+'&_='+Date.now())}catch{}
   if(!srcs||!srcs.length){list.innerHTML='<p style="color:var(--text-muted);font-size:14px;padding:8px 0">no sources for '+esc(title)+' '+q+'.</p>';return}
   state._sources=srcs
-  list.innerHTML=srcs.map(src=>{const eu=',\''+esc(src.embedUrl)+'\'';return'<div class="source-item" id="src-'+src.hash+'"><div class="source-info"><span class="source-quality">HD</span><span style="color:var(--text-muted);font-size:11px">'+(src.provider||'')+'</span></div><button class="source-play" style="background:#4ade80;color:#000" onclick="playSource(\''+src.hash+'\',0,\''+esc(title)+' '+q+'\''+eu+')">▶ Play</button></div>'}).join('')
+  list.innerHTML=srcs.map(src=>{const eu=',\''+esc(src.embedUrl)+'\'';return'<div class="source-item" id="src-'+src.hash+'"><div class="source-info"><span class="source-quality">HD</span><span style="color:var(--text-muted);font-size:11px">'+(src.provider||'')+'</span></div><button class="source-play" style="background:var(--primary);color:#fff" onclick="playSource(\''+src.hash+'\',0,\''+esc(title)+' '+q+'\''+eu+')">▶ Play</button></div>'}).join('')
   if(state.data?._playHash){const ph=state.data._playHash;state.data._playHash=null;setTimeout(()=>{const b=qs('#src-'+ph+' .source-play');if(b)b.click()},100)}
 }
 
@@ -201,7 +201,7 @@ function RD(d,srces,episodes){
     const list=qs('#sl')
     if(!srces||!srces.length){if(list)list.innerHTML='<p style="color:var(--text-muted);font-size:14px;padding:8px 0">No sources found.</p>';return}
     state._sources=srces
-    if(list)list.innerHTML=srces.map(s=>{const eu=',\''+esc(s.embedUrl)+'\'';return'<div class="source-item" id="src-'+s.hash+'"><div class="source-info"><span class="source-quality">HD</span><span style="color:var(--text-muted);font-size:11px">'+(s.provider||'')+'</span></div><button class="source-play" style="background:#4ade80;color:#000" onclick="playSource(\''+s.hash+'\',0,\''+esc(t)+'\''+eu+')">▶ Play</button></div>'}).join('')
+    if(list)list.innerHTML=srces.map(s=>{const eu=',\''+esc(s.embedUrl)+'\'';return'<div class="source-item" id="src-'+s.hash+'"><div class="source-info"><span class="source-quality">HD</span><span style="color:var(--text-muted);font-size:11px">'+(s.provider||'')+'</span></div><button class="source-play" style="background:var(--primary);color:#fff" onclick="playSource(\''+s.hash+'\',0,\''+esc(t)+'\''+eu+')">▶ Play</button></div>'}).join('')
     if(state.data?._playHash){const ph=state.data._playHash;state.data._playHash=null;setTimeout(()=>{const b=qs('#src-'+ph+' .source-play');if(b)b.click()},100)}
   }
 
@@ -276,7 +276,7 @@ function getDetailHash(){
 function ifr(url,title){
   document.title=title+' - web-streaming'
   const u=url.replace(/'/g,'%27')
-  return'<div class="player-container"><button class="player-back" onclick="cp()"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>back</button><div class="player-wrapper"><iframe src="'+u+'" allow="autoplay;encrypted-media;fullscreen" allowfullscreen style="position:absolute;inset:0;width:100%;height:100%;border:none;background:#000"></iframe></div></div>'
+  return'<div class="player-container"><button class="detail-back" onclick="cp()"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>back</button><div class="player-wrapper"><iframe src="'+u+'" allow="autoplay;encrypted-media;fullscreen" allowfullscreen style="position:absolute;inset:0;width:100%;height:100%;border:none;background:#000"></iframe></div></div>'
 }
 
 async function streamAndPlay(hash,fi,dlId,ps,pl){
