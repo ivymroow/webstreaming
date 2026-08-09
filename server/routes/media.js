@@ -6,7 +6,7 @@ const { requireQuery } = require('../middleware/validation');
 const axios = require('axios');
 
 const router = express.Router();
-const TMDB_KEY = process.env.TMDB_KEY || '64caa5119a1abe79e6a57a9069c03df5';
+const K = process.env.TMDB_KEY || '64caa5119a1abe79e6a57a9069c03df5';
 
 router.get('/status', (req, res) => { res.json({ mode: 'backend' }); });
 
@@ -31,7 +31,7 @@ router.get('/movie/:id', asyncHandler(async (req, res) => {
     const isTv = type === 'tv';
     try {
       const ep = isTv ? 'tv' : 'movie';
-      const { data: info } = await axios.get(`https://api.themoviedb.org/3/${ep}/${tmdbId}?api_key=${TMDB_KEY}`, { timeout: 8000 });
+      const { data: info } = await axios.get(`https://api.themoviedb.org/3/${ep}/${tmdbId}?api_key=${K}`, { timeout: 8000 });
       if (info) {
         res.json({
           id: info.imdb_id || id, title: info.title || info.name || '', year: (info.release_date || info.first_air_date || '').slice(0, 4),
@@ -51,17 +51,10 @@ router.get('/movie/:id/sources', asyncHandler(async (req, res) => {
   let id = req.params.id, tmdb = null;
   if (id.startsWith('tmdb-')) {
     tmdb = id.replace('tmdb-', '');
-    const imdb = await new Promise(resolve => {
-      axios.get(`https://api.themoviedb.org/3/movie/${tmdb}`, { params: { api_key: TMDB_KEY }, timeout: 8000 })
-        .then(r => resolve(r.data.imdb_id)).catch(() => resolve(null));
-    });
-    if (!imdb) {
-      const tvImdb = await new Promise(resolve => {
-        axios.get(`https://api.themoviedb.org/3/tv/${tmdb}`, { params: { api_key: TMDB_KEY }, timeout: 8000 })
-          .then(r => resolve(r.data.imdb_id)).catch(() => resolve(null));
-      });
-      id = tvImdb || id;
-    } else { id = imdb; }
+    try { const r = await axios.get(`https://api.themoviedb.org/3/movie/${tmdb}?api_key=${K}`, { timeout: 8000 }); if (r.data.imdb_id) id = r.data.imdb_id; } catch {}
+    if (id.startsWith('tmdb-')) {
+      try { const r = await axios.get(`https://api.themoviedb.org/3/tv/${tmdb}?api_key=${K}`, { timeout: 8000 }); if (r.data.imdb_id) id = r.data.imdb_id; } catch {}
+    }
   }
   res.json(await embeds.getEmbeds(id, tmdb));
 }));
@@ -76,11 +69,7 @@ router.get('/show/:id/sources', asyncHandler(async (req, res) => {
   if (!season || !episode) return res.json([]);
   if (id.startsWith('tmdb-')) {
     tmdb = id.replace('tmdb-', '');
-    const imdb = await new Promise(resolve => {
-      axios.get(`https://api.themoviedb.org/3/tv/${tmdb}`, { params: { api_key: TMDB_KEY }, timeout: 8000 })
-        .then(r => resolve(r.data.imdb_id)).catch(() => resolve(null));
-    });
-    id = imdb || id;
+    try { const r = await axios.get(`https://api.themoviedb.org/3/tv/${tmdb}?api_key=${K}`, { timeout: 8000 }); if (r.data.imdb_id) id = r.data.imdb_id; } catch {}
   }
   res.json(await embeds.getEmbeds(id, tmdb, Number(season), Number(episode)));
 }));
