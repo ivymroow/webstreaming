@@ -23,7 +23,7 @@ const server = app.listen(env.port, '0.0.0.0', () => {
         logger.debug(`keepalive ping: ${res.statusCode}`);
         res.resume();
       }).on('error', err => logger.debug(`keepalive ping failed: ${err.message}`));
-    }, 10 * 60 * 1000).unref();
+    }, 5 * 60 * 1000).unref();
   }
 });
 
