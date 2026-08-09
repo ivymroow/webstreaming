@@ -159,7 +159,7 @@ async function LD(){
   if(s&&ep&&type==='tv'){selectedSeason=s;selectedEpisode=ep}
   try{
     const d=await api('GET','/api/movie/'+id+'?type='+type+'&title='+encodeURIComponent(tHint)+'&year='+yHint)
-    state.data._title=d.title||'';state.data._year=d.year||'';state.data._poster=d.poster||state.data.poster||'';if(d.id&&d.id!==id)state.data.id=d.id
+    state.data._title=d.title||'';state.data._year=d.year||'';state.data._poster=d.poster||state.data.poster||'';if(d.id&&d.id!==id)state.data.id=d.id;if(d._tmdbId)state.data._tmdbId=d._tmdbId
     if(d.type==='tv'||type==='tv'){const eps=await api('GET','/api/show/'+id+'/episodes?title='+encodeURIComponent(d.title||''));RD(d,null,eps)}
     else{const src=await api('GET','/api/movie/'+id+'/sources?title='+encodeURIComponent(d.title||'')+'&year='+(d.year||'')+'&type='+type);RD(d,src,null)}
   }catch(e){qs('#dL').outerHTML='<p style="color:var(--text-muted);padding:20px">'+esc(e.message)+'</p>'}

@@ -58,11 +58,21 @@ async function convertTmdb(tmdb, type) {
   } catch { return null; }
 }
 
+async function convertImdbToTmdb(imdb, type) {
+  try {
+    const { data } = await axios.get(`https://api.themoviedb.org/3/find/${imdb}?api_key=${K}&external_source=imdb_id`, { timeout: 8000 });
+    const items = type === 'tv' ? (data.tv_results || []) : (data.movie_results || []);
+    return items.length ? String(items[0].id) : null;
+  } catch { return null; }
+}
+
 router.get('/movie/:id/sources', asyncHandler(async (req, res) => {
   let id = req.params.id, tmdb = null;
   if (id.startsWith('tmdb-')) {
     tmdb = id.replace('tmdb-', '');
     id = await convertTmdb(tmdb, 'movie') || await convertTmdb(tmdb, 'tv') || id;
+  } else if (id.startsWith('tt')) {
+    tmdb = await convertImdbToTmdb(id, 'movie') || await convertImdbToTmdb(id, 'tv');
   }
   res.json(await embeds.getEmbeds(id, tmdb));
 }));
@@ -78,6 +88,8 @@ router.get('/show/:id/sources', asyncHandler(async (req, res) => {
   if (id.startsWith('tmdb-')) {
     tmdb = id.replace('tmdb-', '');
     id = await convertTmdb(tmdb, 'tv') || id;
+  } else if (id.startsWith('tt')) {
+    tmdb = await convertImdbToTmdb(id, 'tv');
   }
   res.json(await embeds.getEmbeds(id, tmdb, Number(season), Number(episode)));
 }));
