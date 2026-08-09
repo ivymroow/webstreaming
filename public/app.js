@@ -269,7 +269,7 @@ function getDetailHash(){
   if(d.type==='tv')h+='&type=tv'
   if(d.title)h+='&t='+encodeURIComponent(d.title)
   if(d.year)h+='&y='+d.year
-  if(selectedSeason&&selectedEpisode)h+='&s='+selectedSeason+'&e='+selectedEpisode
+  if(d.type==='tv'&&selectedSeason&&selectedEpisode)h+='&s='+selectedSeason+'&e='+selectedEpisode
   return h
 }
 
