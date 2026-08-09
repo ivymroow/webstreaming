@@ -5,7 +5,9 @@ const SUPABASE_KEY = process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6Ik
 
 function getClient(token) {
   if (!token) return createClient(SUPABASE_URL, SUPABASE_KEY);
-  return createClient(SUPABASE_URL, SUPABASE_KEY, { global: { headers: { Authorization: `Bearer ${token}` } } });
+  const c = createClient(SUPABASE_URL, SUPABASE_KEY);
+  c.auth.setSession({ access_token: token, refresh_token: '' });
+  return c;
 }
 
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
