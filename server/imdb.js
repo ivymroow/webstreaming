@@ -1,6 +1,7 @@
 const axios = require('axios');
 
 const TMDB_KEY = process.env.TMDB_KEY || '64caa5119a1abe79e6a57a9069c03df5';
+const TMDB_IMG = 'https://image.tmdb.org/t/p/w500';
 const http = axios.create({ timeout: 20000, headers: { 'User-Agent': 'web-streaming/1.0' } });
 
 async function fetchWithRetry(url, retries = 2) {
@@ -12,20 +13,14 @@ async function fetchWithRetry(url, retries = 2) {
   }
 }
 
-function posterUrl(i) {
-  if (!i) return '';
-  if (Array.isArray(i)) return i[0] || '';
-  if (typeof i === 'object') return i.imageUrl || i.url || '';
-  return '';
+function posterUrl(path) {
+  if (!path) return '';
+  if (typeof path === 'string' && path.startsWith('http')) return path;
+  return path ? TMDB_IMG + path : '';
 }
 
-function isShow(qid) {
-  return qid === 'tvSeries' || qid === 'tvMiniSeries' || qid === 'tvMovie';
-}
-
-function isMovie(qid) {
-  return qid === 'movie' || qid === 'feature' || qid === 'tvMovie';
-}
+function isShow(qid) { return qid === 'tvSeries' || qid === 'tvMiniSeries' || qid === 'tvMovie'; }
+function isMovie(qid) { return qid === 'movie' || qid === 'feature' || qid === 'tvMovie'; }
 
 function cleanup(items) {
   const seen = new Set();
@@ -44,7 +39,6 @@ async function search(query) {
 
 async function details(id, titleHint, yearHint) {
   const result = { id, title: titleHint || '', year: yearHint || null, poster: '', overview: '', genres: [], runtime: null, cast: [], rating: null, type: 'movie' };
-
   try {
     const { data } = await http.get(`https://v3.sg.media-imdb.com/suggestion/x/${encodeURIComponent(titleHint || id)}.json`);
     const item = data?.d?.find(i => i.id === id) || data?.d?.[0];
@@ -56,13 +50,11 @@ async function details(id, titleHint, yearHint) {
       result.type = isShow(item.qid) ? 'tv' : 'movie';
     }
   } catch {}
-
   if (result.title) {
     try {
       const wikiQ = `${result.title}${result.year ? ' ' + result.year : ''} film`;
       const { data: sr } = await http.get('https://en.wikipedia.org/w/api.php', {
-        params: { action: 'query', list: 'search', srsearch: wikiQ, format: 'json', srlimit: 1 },
-        timeout: 5000,
+        params: { action: 'query', list: 'search', srsearch: wikiQ, format: 'json', srlimit: 1 }, timeout: 5000,
       });
       const page = sr?.query?.search?.[0]?.title;
       if (page) {
@@ -71,76 +63,74 @@ async function details(id, titleHint, yearHint) {
         if (!result.poster && sm.thumbnail?.source) result.poster = sm.thumbnail.source;
       }
     } catch {}
-
-    // Fetch full cast from TMDB
     try {
       const { data: found } = await http.get(`https://api.themoviedb.org/3/find/${id}`, {
-        params: { api_key: TMDB_KEY, external_source: 'imdb_id' },
-        timeout: 8000,
+        params: { api_key: TMDB_KEY, external_source: 'imdb_id' }, timeout: 8000,
       });
       const items = result.type === 'tv' ? (found.tv_results || []) : (found.movie_results || []);
       if (items.length) {
         const tmdbId = items[0].id;
+        if (!result.poster && items[0].poster_path) result.poster = TMDB_IMG + items[0].poster_path;
+        result._tmdbId = tmdbId;
         const { data: credits } = await http.get(`https://api.themoviedb.org/3/${result.type === 'tv' ? 'tv' : 'movie'}/${tmdbId}/credits`, {
-          params: { api_key: TMDB_KEY },
-          timeout: 8000,
+          params: { api_key: TMDB_KEY }, timeout: 8000,
         });
         const tmdbCast = (credits.cast || []).slice(0, 15).map(c => c.name);
         if (tmdbCast.length > result.cast.length) result.cast = tmdbCast;
       }
     } catch {}
   }
-
   return result;
 }
 
-async function popularMovies() {
-  const queries = ['2024+film', '2023+film', '2025+film', '2022+film'];
-  const results = [];
-  for (const q of queries) {
-    try {
-      const { data } = await fetchWithRetry(`https://v3.sg.media-imdb.com/suggestion/x/${q}.json`);
-      if (data?.d) for (const i of data.d) {
-        if (i.id?.startsWith('tt') && i.l && posterUrl(i.i) && isMovie(i.qid)) {
-          results.push({ id: i.id, title: i.l, year: i.y || null, stars: i.s || '', poster: posterUrl(i.i), type: 'movie' });
-        }
-      }
-    } catch {}
-  }
-  return cleanup(results);
-}
-
-async function popularShows() {
-  const queries = ['tv+series+2025', 'tv+series+2024', 'tv+series+2023', 'tv+drama', 'tv+comedy', 'tv+action'];
-  const results = [];
-  for (const q of queries) {
-    try {
-      const { data } = await http.get(`https://v3.sg.media-imdb.com/suggestion/x/${q}.json`);
-      if (data?.d) for (const i of data.d) {
-        if (i.id?.startsWith('tt') && i.l && posterUrl(i.i) && isShow(i.qid)) {
-          results.push({ id: i.id, title: i.l, year: i.y || null, stars: i.s || '', poster: posterUrl(i.i), type: 'tv' });
-        }
-      }
-    } catch {}
-  }
-  return cleanup(results);
+async function tmdbToItem(item, mediaType) {
+  return {
+    id: '', // will be set below
+    title: item.title || item.name || '',
+    year: (item.release_date || item.first_air_date || '').slice(0, 4) || null,
+    poster: posterUrl(item.poster_path),
+    overview: item.overview || '',
+    rating: item.vote_average || null,
+    type: mediaType === 'tv' ? 'tv' : 'movie',
+    _tmdbId: item.id,
+  };
 }
 
 async function trending() {
-  const queries = ['action', 'comedy', 'drama', 'horror', 'thriller', 'sci-fi', 'romance', 'animation', 'adventure', 'crime', 'mystery', 'fantasy', 'documentary', 'new+movie', 'popular', 'tv+series', 'netflix', 'marvel', 'war', 'western', 'musical', 'biography', 'family'];
-  const picked = [...queries].sort(() => Math.random() - 0.5).slice(0, 4);
-  const results = [];
-  for (const q of picked) {
-    try {
-      const { data } = await fetchWithRetry(`https://v3.sg.media-imdb.com/suggestion/x/${encodeURIComponent(q)}.json`);
-      if (data?.d) for (const i of data.d) {
-        if (i.id?.startsWith('tt') && i.l && posterUrl(i.i) && i.y) {
-          results.push({ id: i.id, title: i.l, year: i.y || null, stars: i.s || '', poster: posterUrl(i.i), type: isShow(i.qid) ? 'tv' : 'movie' });
-        }
-      }
-    } catch {}
-  }
-  return cleanup(results).sort(() => Math.random() - 0.5);
+  try {
+    const { data } = await http.get('https://api.themoviedb.org/3/trending/all/week', {
+      params: { api_key: TMDB_KEY },
+      timeout: 10000,
+    });
+    const items = (data.results || []).map(i => tmdbToItem(i, i.media_type));
+    // Generate stable pseudo-IDs from TMDB IDs for navigation
+    items.forEach(i => { i.id = 'tmdb-' + i._tmdbId; });
+    return items.filter(i => i.poster && i.title).slice(0, 24);
+  } catch { return []; }
 }
 
-module.exports = { search, details, trending, popularMovies, popularShows };
+async function popularMovies() {
+  try {
+    const { data } = await http.get('https://api.themoviedb.org/3/movie/popular', {
+      params: { api_key: TMDB_KEY },
+      timeout: 10000,
+    });
+    const items = (data.results || []).map(i => tmdbToItem(i, 'movie'));
+    items.forEach(i => { i.id = 'tmdb-' + i._tmdbId; });
+    return items.filter(i => i.poster && i.title).slice(0, 20);
+  } catch { return []; }
+}
+
+async function popularShows() {
+  try {
+    const { data } = await http.get('https://api.themoviedb.org/3/tv/popular', {
+      params: { api_key: TMDB_KEY },
+      timeout: 10000,
+    });
+    const items = (data.results || []).map(i => tmdbToItem(i, 'tv'));
+    items.forEach(i => { i.id = 'tmdb-' + i._tmdbId; });
+    return items.filter(i => i.poster && i.title).slice(0, 20);
+  } catch { return []; }
+}
+
+module.exports = { search, details, trending, popularMovies, popularShows, TMDB_IMG };
