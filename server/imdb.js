@@ -15,8 +15,11 @@ async function fetchWithRetry(url, retries = 2) {
 
 function posterUrl(path) {
   if (!path) return '';
-  if (typeof path === 'string' && path.startsWith('http')) return path;
-  return path ? TMDB_IMG + path : '';
+  if (Array.isArray(path)) path = path[0] || '';
+  if (typeof path === 'object') path = path.imageUrl || path.url || '';
+  if (typeof path !== 'string') return '';
+  if (path.startsWith('http')) return path;
+  return path.startsWith('/') ? TMDB_IMG + path : path;
 }
 
 function isShow(qid) { return qid === 'tvSeries' || qid === 'tvMiniSeries' || qid === 'tvMovie'; }
@@ -103,10 +106,9 @@ async function trending() {
       timeout: 10000,
     });
     const items = (data.results || []).map(i => tmdbToItem(i, i.media_type));
-    // Generate stable pseudo-IDs from TMDB IDs for navigation
     items.forEach(i => { i.id = 'tmdb-' + i._tmdbId; });
     return items.filter(i => i.poster && i.title).slice(0, 24);
-  } catch { return []; }
+  } catch (e) { console.log('trending error:', e.message); return []; }
 }
 
 async function popularMovies() {
