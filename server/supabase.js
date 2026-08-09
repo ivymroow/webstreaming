@@ -28,7 +28,8 @@ async function signIn(username, password) {
 }
 
 async function getUserFromToken(token) {
-  const { data: { user }, error } = await await getClient(token).auth.getUser(token);
+  const c = await getClient(token);
+  const { data: { user }, error } = await c.auth.getUser(token);
   if (error || !user) return null;
   return { id: user.id, username: user.user_metadata?.username || 'user' };
 }
