@@ -247,7 +247,7 @@ async function playSource(hash,fi,title,embedUrl){
   state.prevState={view:state.view,data:state.data}
   if(embedUrl){
     history.replaceState(null,'','#'+getDetailHash()+'&hash='+hash)
-    state.view='player';document.title=title+' - web-streaming';qs('#app').innerHTML=ifr(embedUrl,title)
+    state.view='player';document.title=title+' - web-streaming';qs('#main').innerHTML=ifr(embedUrl,title)
     // auto-save as watching
     if(state.user&&state.data?.id&&!state._savedThis){
       state._savedThis=true
