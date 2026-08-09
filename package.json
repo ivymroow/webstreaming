@@ -13,7 +13,6 @@
     "axios": "^1.7.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
-    "express": "^4.21.0",
-    "s-engine": "file:vendor/s-engine.tgz"
+    "express": "^4.21.0"
   }
 }
