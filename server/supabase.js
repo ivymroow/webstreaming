@@ -37,12 +37,15 @@ async function getUserFromToken(token) {
 async function saveProgress(userId, item, token) {
   const c = await getClient(token);
   const { id, title, poster, type, season, episode, duration, watched, status } = item;
-  const { error } = await c.from('watch_progress').upsert({
+  const se = season || 0, ep = episode || 0;
+  // Delete existing first to avoid duplicate constraint issues
+  await c.from('watch_progress').delete().eq('user_id', userId).eq('item_id', id).eq('season', se).eq('episode', ep);
+  const { error } = await c.from('watch_progress').insert({
     user_id: userId, item_id: id, title, poster, type,
-    season: season || 0, episode: episode || 0,
+    season: se, episode: ep,
     duration: duration || 0, watched: watched || 0,
     status: status || 'watching', updated_at: new Date().toISOString(),
-  }, { onConflict: 'user_id,item_id,season,episode' });
+  });
   if (error) throw new Error(error.message);
 }
 
