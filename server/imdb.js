@@ -1,8 +1,8 @@
 const axios = require('axios');
 
+const TMDB_KEY = process.env.TMDB_KEY || '64caa5119a1abe79e6a57a9069c03df5';
 const http = axios.create({ timeout: 20000, headers: { 'User-Agent': 'web-streaming/1.0' } });
 
-// Retry wrapper
 async function fetchWithRetry(url, retries = 2) {
   for (let i = 0; i <= retries; i++) {
     try { return await http.get(url); } catch (e) {
@@ -69,36 +69,29 @@ async function details(id, titleHint, yearHint) {
         const { data: sm } = await http.get(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(page)}`, { timeout: 5000 });
         if (sm.extract) result.overview = sm.extract;
         if (!result.poster && sm.thumbnail?.source) result.poster = sm.thumbnail.source;
-        // Fetch full cast from Wikipedia
-        const wikiCast = await getWikipediaCast(page);
-        if (wikiCast.length > result.cast.length) result.cast = wikiCast;
+      }
+    } catch {}
+
+    // Fetch full cast from TMDB
+    try {
+      const { data: found } = await http.get(`https://api.themoviedb.org/3/find/${id}`, {
+        params: { api_key: TMDB_KEY, external_source: 'imdb_id' },
+        timeout: 8000,
+      });
+      const items = result.type === 'tv' ? (found.tv_results || []) : (found.movie_results || []);
+      if (items.length) {
+        const tmdbId = items[0].id;
+        const { data: credits } = await http.get(`https://api.themoviedb.org/3/${result.type === 'tv' ? 'tv' : 'movie'}/${tmdbId}/credits`, {
+          params: { api_key: TMDB_KEY },
+          timeout: 8000,
+        });
+        const tmdbCast = (credits.cast || []).slice(0, 15).map(c => c.name);
+        if (tmdbCast.length > result.cast.length) result.cast = tmdbCast;
       }
     } catch {}
   }
 
   return result;
-}
-
-async function getWikipediaCast(title) {
-  try {
-    const { data } = await http.get('https://en.wikipedia.org/w/api.php', {
-      params: { action: 'parse', page: title, prop: 'text', section: 'Cast', format: 'json' },
-      timeout: 8000,
-    });
-    const html = data?.parse?.text?.['*'] || '';
-    if (!html) return [];
-    // Extract actor names from cast list items
-    const names = [];
-    const liRegex = /<li>(.*?)<\/li>/g;
-    let match;
-    while ((match = liRegex.exec(html)) !== null) {
-      let text = match[1].replace(/<[^>]+>/g, '').replace(/\s*as\s.*$/i, '').replace(/\[.*?\]/g, '').trim();
-      if (text && text.length < 50 && !text.match(/^(Cast|and |also |with |featuring|guest|co-|starring)/i)) {
-        names.push(text);
-      }
-    }
-    return names.slice(0, 15);
-  } catch { return []; }
 }
 
 async function popularMovies() {
@@ -134,12 +127,7 @@ async function popularShows() {
 }
 
 async function trending() {
-  const queries = [
-    'action', 'comedy', 'drama', 'horror', 'thriller', 'sci-fi', 'romance', 'animation',
-    'adventure', 'crime', 'mystery', 'fantasy', 'documentary', 'new+movie', 'popular',
-    'tv+series', 'netflix', 'marvel', 'war', 'western', 'musical', 'biography', 'family',
-  ];
-  // Pick 4 random queries each time for variety
+  const queries = ['action', 'comedy', 'drama', 'horror', 'thriller', 'sci-fi', 'romance', 'animation', 'adventure', 'crime', 'mystery', 'fantasy', 'documentary', 'new+movie', 'popular', 'tv+series', 'netflix', 'marvel', 'war', 'western', 'musical', 'biography', 'family'];
   const picked = [...queries].sort(() => Math.random() - 0.5).slice(0, 4);
   const results = [];
   for (const q of picked) {
