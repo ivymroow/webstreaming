@@ -362,7 +362,7 @@ function initPlayer(video,baseUrl,infoHash){
 
 function fmtTime(s){if(!s||!isFinite(s))return'0:00';const m=Math.floor(s/60),sec=Math.floor(s%60);return m+':'+(sec<10?'0':'')+sec}
 function perr(msg){const pw=qs('#pw');if(pw)pw.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;padding:40px;text-align:center"><p style="color:#f87171;font-size:16px">'+esc(msg)+'</p><button class="btn btn-primary" onclick="cp()">Go Back</button></div>'}
-function cp(){state._savedThis=false;if(state.player)state.player=null;if(state.prevState){const d=state.prevState.data||{};let h='id='+(d.id||'');if(d.type==='tv')h+='&type=tv';if(d.title)h+='&t='+encodeURIComponent(d.title);if(d.year)h+='&y='+d.year;if(d.type==='tv'&&selectedSeason&&selectedEpisode)h+='&s='+selectedSeason+'&e='+selectedEpisode;history.replaceState(null,'','#'+h);state.view=state.prevState.view;state.data=state.prevState.data;state.prevState=null;qs('#app').innerHTML='<header id="mainHeader"></header><main id="main"></main>';render()}else location.reload()}
+function cp(){state._savedThis=false;if(state.player)state.player=null;if(state.prevState){const d=state.prevState.data||{};let h='id='+(d.id||'');if(d.type==='tv')h+='&type=tv';if(d.title)h+='&t='+encodeURIComponent(d.title);if(d.year)h+='&y='+d.year;if(d.type==='tv'&&selectedSeason&&selectedEpisode)h+='&s='+selectedSeason+'&e='+selectedEpisode;history.replaceState(null,'','#'+h);navigate(state.prevState.view,state.prevState.data)}else location.reload()}
 
 function G(id,items){
   const el=qs('#'+id);if(!items||!items.length){el.innerHTML='';return}
