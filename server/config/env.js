@@ -30,7 +30,7 @@ const corsOrigins = parseList(process.env.CORS_ORIGINS);
 const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
   isProduction,
-  port: numberFromEnv('PORT', 3000),
+  port: numberFromEnv('PORT', 8080),
   publicDir: path.join(__dirname, '..', '..', 'public'),
   corsOrigins,
   rateLimitWindowMs: numberFromEnv('RATE_LIMIT_WINDOW_MS', 60_000),
