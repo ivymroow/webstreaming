@@ -4,9 +4,9 @@ async function getEmbeds(imdbId, tmdbId, season, episode) {
   if (season && episode) {
     if (tmdbId) {
       embeds.push({ name: 'VidSrc.to', url: `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}` });
+      embeds.push({ name: 'VidPlus (Anime)', url: `https://player.vidplus.to/embed/anime/${tmdbId}/${episode}` });
       embeds.push({ name: 'VidSrc.me', url: `https://vidsrc.me/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}` });
       embeds.push({ name: 'VidLink', url: `https://vidlink.pro/tv/${tmdbId}/${season}/${episode}` });
-      embeds.push({ name: 'VidPlus (Anime)', url: `https://player.vidplus.to/embed/anime/${tmdbId}/${season}/${episode}` });
     }
     embeds.push({ name: '2Embed', url: `https://www.2embed.cc/embedtv/${imdbId}&s=${season}&e=${episode}` });
     embeds.push({ name: 'MultiEmbed', url: `https://multiembed.mov/?video_id=${tmdbId||imdbId}&tmdb=1&s=${season}&e=${episode}` });
