@@ -46,7 +46,11 @@ async function details(id, titleHint, yearHint) {
   try {
     const { data } = await http.get(`https://v3.sg.media-imdb.com/suggestion/x/${encodeURIComponent(titleHint || id)}.json`);
     const item = data?.d?.find(i => i.id === id) || data?.d?.[0];
-    if (item) {
+    if (item && item.id !== id) {
+      result.title = titleHint || result.title;
+      result.poster = '';
+      result.type = result.id.startsWith('tt') ? 'movie' : 'tv';
+    } else if (item) {
       result.title = item.l || result.title;
       result.year = item.y || result.year;
       result.poster = posterUrl(item.i) || result.poster;
