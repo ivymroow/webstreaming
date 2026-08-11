@@ -48,7 +48,14 @@ function rating(i){return i.rating?i.rating.toFixed(1):null}
 
 function navigate(v,d){
   state.prevState={view:state.view,data:state.data};state.view=v;state.data=d
-  history.replaceState(null,'','/');render()
+  let h='#'
+  if(v==='search')h='#q='+encodeURIComponent(state.query||'')
+  else if(v==='detail'){
+    const ep=(d?.type==='tv'&&selectedEpisode)?'&s='+selectedSeason+'&e='+selectedEpisode:''
+    h='#id='+(d?.id||'')+(d?.type==='tv'?'&type=tv':'')+(d?.title?'&t='+encodeURIComponent(d.title):'')+(d?.year?'&y='+d.year:'')+ep+(d?._playHash?'&hash='+d._playHash:'')
+  }else if(v==='profile')h='#profile'
+  else if(v==='notice')h='#notice'
+  history.replaceState(null,'',h);render()
 }
 
 window.addEventListener('popstate',()=>{
@@ -239,6 +246,7 @@ async function playBest(){
 async function playSource(hash,fi,title,embedUrl){
   state.prevState={view:state.view,data:state.data}
   if(embedUrl){
+    history.replaceState(null,'','#'+getDetailHash()+'&hash='+hash)
     state.view='player';document.title=title+' - webstreaming';qs('#main').innerHTML=ifr(embedUrl,title)
     // auto-save as watching
     if(state.user&&state.data?.id&&!state._savedThis){
@@ -355,7 +363,7 @@ function initPlayer(video,baseUrl,infoHash){
 
 function fmtTime(s){if(!s||!isFinite(s))return'0:00';const m=Math.floor(s/60),sec=Math.floor(s%60);return m+':'+(sec<10?'0':'')+sec}
 function perr(msg){const pw=qs('#pw');if(pw)pw.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;padding:40px;text-align:center"><p style="color:#f87171;font-size:16px">'+esc(msg)+'</p><button class="btn btn-primary" onclick="cp()">Go Back</button></div>'}
-function cp(){state._savedThis=false;if(state.player)state.player=null;if(state.prevState){navigate(state.prevState.view,state.prevState.data)}else location.reload()}
+function cp(){state._savedThis=false;if(state.player)state.player=null;if(state.prevState){const d=state.prevState.data||{};let h='id='+(d.id||'');if(d.type==='tv')h+='&type=tv';if(d.title)h+='&t='+encodeURIComponent(d.title);if(d.year)h+='&y='+d.year;if(d.type==='tv'&&selectedSeason&&selectedEpisode)h+='&s='+selectedSeason+'&e='+selectedEpisode;history.replaceState(null,'','#'+h);navigate(state.prevState.view,state.prevState.data)}else location.reload()}
 
 function G(id,items){
   const el=qs('#'+id);if(!items||!items.length){el.innerHTML='';return}
