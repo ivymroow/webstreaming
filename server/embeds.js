@@ -1,4 +1,4 @@
-async function getEmbeds(imdbId, tmdbId, season, episode, anilistId) {
+async function getEmbeds(imdbId, tmdbId, season, episode) {
   const embeds = [];
 
   if (season && episode) {

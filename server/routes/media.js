@@ -1,7 +1,6 @@
 const express = require('express');
 const metadata = require('../services/metadata');
 const embeds = require('../embeds');
-const anilist = require('../anilist');
 const { asyncHandler } = require('../middleware/errors');
 const { requireQuery } = require('../middleware/validation');
 const axios = require('axios');
@@ -84,18 +83,16 @@ router.get('/show/:id/episodes', asyncHandler(async (req, res) => {
 }));
 
 router.get('/show/:id/sources', asyncHandler(async (req, res) => {
-  let id = req.params.id, tmdb = null, aniId = null;
+  let id = req.params.id, tmdb = null;
   const { season, episode } = req.query;
   if (!season || !episode) return res.json([]);
   if (id.startsWith('tmdb-')) {
     tmdb = id.replace('tmdb-', '');
-    aniId = await anilist.getAniListId(tmdb);
     id = await convertTmdb(tmdb, 'tv') || id;
   } else if (id.startsWith('tt')) {
     tmdb = await convertImdbToTmdb(id, 'tv');
-    if (tmdb) aniId = await anilist.getAniListId(tmdb);
   }
-  res.json(await embeds.getEmbeds(id, tmdb, Number(season), Number(episode), aniId));
+  res.json(await embeds.getEmbeds(id, tmdb, Number(season), Number(episode)));
 }));
 
 module.exports = router;
