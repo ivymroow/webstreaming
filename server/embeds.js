@@ -4,7 +4,6 @@ async function getEmbeds(imdbId, tmdbId, season, episode) {
   if (season && episode) {
     if (tmdbId) {
       embeds.push({ name: 'VidSrc.to', url: `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}` });
-      if (anilistId) embeds.push({ name: 'VidPlus (Anime)', url: `https://player.vidplus.to/embed/anime/${anilistId}/${episode}` });
       embeds.push({ name: 'VidSrc.me', url: `https://vidsrc.me/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}` });
       embeds.push({ name: 'VidLink', url: `https://vidlink.pro/tv/${tmdbId}/${season}/${episode}` });
     }
