@@ -257,7 +257,13 @@ async function playSource(hash,fi,title,embedUrl){
     if(state.user&&state.data?.id&&!state._savedThis){
       state._savedThis=true
       const p=state._poster||state.data._poster||state.data.poster||''
-      const status=state.data.type==='movie'?'watched':'watching'
+      // Check if last episode of season for TV shows
+      let status='watching'
+      if(state.data.type==='movie')status='watched'
+      else if(window._eps&&selectedSeason&&selectedEpisode){
+        const sd=window._eps.find(s=>s.season===selectedSeason)
+        if(sd&&sd.episodes&&selectedEpisode>=sd.episodes[sd.episodes.length-1]?.number)status='watched'
+      }
       const se=state.data.type==='tv'?selectedSeason:0,ep=state.data.type==='tv'?selectedEpisode:0
       const saveId=state.data.id||''
       fetch((state.backendUrl||'')+'/api/progress/save',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({id:saveId,title:state._title||state.data.title||'',poster:p,type:state.data.type||'movie',season:se,episode:ep,duration:0,watched:0,status})}).then(r=>{state._savedThis=false}).catch(()=>{state._savedThis=false})
@@ -370,6 +376,8 @@ function initPlayer(video,baseUrl,infoHash){
 function fmtTime(s){if(!s||!isFinite(s))return'0:00';const m=Math.floor(s/60),sec=Math.floor(s%60);return m+':'+(sec<10?'0':'')+sec}
 function perr(msg){const pw=qs('#pw');if(pw)pw.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;padding:40px;text-align:center"><p style="color:#f87171;font-size:16px">'+esc(msg)+'</p><button class="btn btn-primary" onclick="cp()">Go Back</button></div>'}
 function cp(){state._savedThis=false;if(state.player)state.player=null;if(state.prevState){const d=state.prevState.data||{};let h='id='+(d.id||'');if(d.type==='tv')h+='&type=tv';if(d.title)h+='&t='+encodeURIComponent(d.title);if(d.year)h+='&y='+d.year;if(d.type==='tv'&&selectedSeason&&selectedEpisode)h+='&s='+selectedSeason+'&e='+selectedEpisode;history.replaceState(null,'','#'+h);navigate(state.prevState.view,state.prevState.data)}else location.reload()}
+
+window.addEventListener('message',e=>{if(e.origin.includes('vidlink.pro')){try{const d=typeof e.data==='string'?JSON.parse(e.data):e.data;if(d.event==='ended'||(d.progress&&d.progress>0.9)){if(state.user&&state.data?.id){const se2=state.data.type==='tv'?selectedSeason:0,ep2=state.data.type==='tv'?selectedEpisode:0;fetch((state.backendUrl||'')+'/api/progress/save',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({id:state.data.id,title:state._title||'',poster:state._poster||'',type:state.data.type||'movie',season:se2,episode:ep2,duration:0,watched:0,status:'watched'})}).catch(()=>{})}}}catch{}}})
 
 function G(id,items){
   const el=qs('#'+id);if(!items||!items.length){el.innerHTML='';return}
