@@ -58,12 +58,20 @@ async function getProgress(userId, itemId, season, episode, token) {
   return data;
 }
 
-async function listProgress(userId, status, token, limit = 20) {
+async function listProgress(userId, status, token, limit = 30) {
   const c = await getClient(token);
   let q = c.from('watch_progress').select('*').eq('user_id', userId);
   if (status) q = q.eq('status', status);
-  const { data } = await q.order('updated_at', { ascending: false }).limit(limit);
-  return data || [];
+  const { data } = await q.order('updated_at', { ascending: false });
+  // Deduplicate by item_id - only show latest entry per show
+  const seen = new Set();
+  const deduped = [];
+  for (const item of (data || [])) {
+    if (seen.has(item.item_id)) continue;
+    seen.add(item.item_id);
+    deduped.push(item);
+  }
+  return deduped.slice(0, limit);
 }
 
 async function addToWatchlist(userId, item, token) {
