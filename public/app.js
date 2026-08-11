@@ -53,24 +53,26 @@ function navigate(v,d){
   else if(v==='detail'){
     const ep=(d?.type==='tv'&&selectedEpisode)?'&s='+selectedSeason+'&e='+selectedEpisode:''
     h='#id='+(d?.id||'')+(d?.type==='tv'?'&type=tv':'')+(d?.title?'&t='+encodeURIComponent(d.title):'')+(d?.year?'&y='+d.year:'')+ep+(d?._playHash?'&hash='+d._playHash:'')
-  }  else if(v==='profile')h='#profile'
-  else if(v==='notice'||v==='socials')h='#'+v
-  history.replaceState(null,'',h);render()
+  }  else if(v==='profile')h='/profile'
+  else if(v==='notice')h='/notice'
+  else if(v==='socials')h='/socials'
+  else if(v==='home')h='/'
+  history[v==='detail'||v==='search'?'replaceState':'pushState'](null,'',h);render()
 }
 
 window.addEventListener('popstate',()=>{
   if(state.player)return
-  const h=window.location.hash.slice(1)
-  if(!h||h==='/'||h===''){state.view='welcome';render();return}
-  if(h==='profile'){state.view='profile';render();return}
-  const p=new URLSearchParams(h)
-  if(p.has('q')){state.query=p.get('q');qs('#searchInput').value=state.query;render()}
-  else if(p.has('id')){
-    state.view='detail';const se=parseInt(p.get('s')),ep=parseInt(p.get('e'))
+  const p=window.location.pathname
+  if(p==='/'){state.view='home';render()}
+  else if(p==='/profile'){state.view='profile';render()}
+  else if(p==='/notice'){state.view='notice';render()}
+  else if(p==='/socials'){state.view='socials';render()}
+  else{const h=window.location.hash.slice(1);if(h){const params=new URLSearchParams(h)
+  if(params.has('q')){state.query=params.get('q');qs('#searchInput').value=state.query;state.view='search';render()}
+  else if(params.has('id')){state.view='detail';const se=parseInt(params.get('s')),ep=parseInt(params.get('e'))
     if(se&&ep){selectedSeason=se;selectedEpisode=ep}
-    state.data={id:p.get('id'),type:p.get('type')||'movie',title:p.get('t')||'',year:p.get('y')||'',season:se||null,episode:ep||null}
-    render()
-  }
+    state.data={id:params.get('id'),type:params.get('type')||'movie',title:params.get('t')||'',year:params.get('y')||'',season:se||null,episode:ep||null};render()}}}
+  if(!window.location.pathname.startsWith('/detail')&&!window.location.hash)state.view='home'
 })
 
 function goBack(){if(state.prevState){state.view=state.prevState.view;state.data=state.prevState.data;state.prevState=null;render()}else navigate('home')}
@@ -408,7 +410,7 @@ async function addWatchlistFromProfile(id,title,poster,type){
 function restoreFromHash(){const hash=window.location.hash.slice(1);if(!hash||hash==='/'||hash==='')return;if(hash==='profile'){state.view='profile';return};if(hash==='notice'){state.view='notice';return};const params=new URLSearchParams(hash);if(params.has('q')){state.query=params.get('q');state.view='search'}else if(params.has('id')){state.view='detail';const type=params.get('type')||(params.has('s')?'tv':'movie');const se=parseInt(params.get('s')),ep=parseInt(params.get('e'));if(se&&ep&&type==='tv'){selectedSeason=se;selectedEpisode=ep};state.data={id:params.get('id'),type,title:params.get('t')||'',year:params.get('y')||'',season:type==='tv'?se||null:null,episode:type==='tv'?ep||null:null,_playHash:params.get('hash')||null}}else state.view='home'}
 
 async function init(){
-  try{await detect();if(state.mode==='backend'){try{const u=await api('GET','/api/auth/user');state.user=u}catch{}};if(state.mode==='standalone'&&!navigator.onLine){qs('#app').innerHTML='<div class="loading-screen"><h2>No backend</h2><p>Connect to the internet or configure a backend URL.</p></div>';return};restoreFromHash();if(state.view==='welcome'&&state.user)state.view='home';if(state.view==='search'&&state.query)qs('#searchInput').value=state.query;render()}catch(e){console.error('Init:',e);qs('#main').innerHTML='<div class="error-view"><h2>Failed to load</h2><p>'+esc(e.message||'Unknown error')+'</p><button class="btn btn-primary" onclick="location.reload()">Retry</button></div>'}
+  try{await detect();if(state.mode==='backend'){try{const u=await api('GET','/api/auth/user');state.user=u}catch{}};if(state.mode==='standalone'&&!navigator.onLine){qs('#app').innerHTML='<div class="loading-screen"><h2>No backend</h2><p>Connect to the internet or configure a backend URL.</p></div>';return};const p=window.location.pathname;const h=window.location.hash;if(h)restoreFromHash();else if(p==='/'){state.view='home'}else if(p==='/profile'){state.view='profile'}else if(p==='/notice'){state.view='notice'}else if(p==='/socials'){state.view='socials'}else state.view='welcome';if(state.view==='welcome'&&state.user)state.view='home';if(state.view==='search'&&state.query)qs('#searchInput').value=state.query;render()}catch(e){console.error('Init:',e);qs('#main').innerHTML='<div class="error-view"><h2>Failed to load</h2><p>'+esc(e.message||'Unknown error')+'</p><button class="btn btn-primary" onclick="location.reload()">Retry</button></div>'}
 }
 
 // Scroll effect on header
