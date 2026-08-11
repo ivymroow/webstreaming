@@ -2,19 +2,22 @@ async function getEmbeds(imdbId, tmdbId, season, episode) {
   const embeds = [];
 
   if (season && episode) {
-    if (tmdbId) embeds.push({ name: 'VidSrc.to', url: `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}` });
-    embeds.push({ name: '2Embed (Sub)', url: `https://www.2embed.cc/embedtv/${imdbId}&s=${season}&e=${episode}` });
-    embeds.push({ name: '2Embed (Dub)', url: `https://www.2embed.cc/embedtv/${imdbId}&s=${season}&e=${episode}&dub=true` });
-    if (tmdbId) embeds.push({ name: 'VidSrc.me', url: `https://vidsrc.me/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}` });
-    if (tmdbId) embeds.push({ name: 'VidLink', url: `https://vidlink.pro/tv/${tmdbId}/${season}/${episode}` });
-    embeds.push({ name: 'MultiEmbed (Sub)', url: `https://multiembed.mov/?video_id=${tmdbId||imdbId}&tmdb=1&s=${season}&e=${episode}` });
-    embeds.push({ name: 'MultiEmbed (Dub)', url: `https://multiembed.mov/?video_id=${tmdbId||imdbId}&tmdb=1&s=${season}&e=${episode}&dub=true` });
+    if (tmdbId) {
+      embeds.push({ name: 'VidSrc.to', url: `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}` });
+      embeds.push({ name: 'VidSrc.me', url: `https://vidsrc.me/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}` });
+      embeds.push({ name: 'VidLink', url: `https://vidlink.pro/tv/${tmdbId}/${season}/${episode}` });
+      embeds.push({ name: 'VidPlus (Anime)', url: `https://player.vidplus.to/embed/anime/${tmdbId}/${season}/${episode}` });
+    }
+    embeds.push({ name: '2Embed', url: `https://www.2embed.cc/embedtv/${imdbId}&s=${season}&e=${episode}` });
+    embeds.push({ name: 'MultiEmbed', url: `https://multiembed.mov/?video_id=${tmdbId||imdbId}&tmdb=1&s=${season}&e=${episode}` });
     embeds.push({ name: 'Smashy', url: `https://embed.smashystream.com/playere.php?${tmdbId?'tmdb='+tmdbId:'imdb='+imdbId}&s=${season}&e=${episode}` });
   } else {
-    if (tmdbId) embeds.push({ name: 'VidSrc.to', url: `https://vidsrc.to/embed/movie/${tmdbId}` });
+    if (tmdbId) {
+      embeds.push({ name: 'VidSrc.to', url: `https://vidsrc.to/embed/movie/${tmdbId}` });
+      embeds.push({ name: 'VidSrc.me', url: `https://vidsrc.me/embed/movie?tmdb=${tmdbId}` });
+      embeds.push({ name: 'VidLink', url: `https://vidlink.pro/movie/${tmdbId}` });
+    }
     embeds.push({ name: '2Embed', url: `https://www.2embed.cc/embed/${imdbId}` });
-    if (tmdbId) embeds.push({ name: 'VidSrc.me', url: `https://vidsrc.me/embed/movie?tmdb=${tmdbId}` });
-    if (tmdbId) embeds.push({ name: 'VidLink', url: `https://vidlink.pro/movie/${tmdbId}` });
     embeds.push({ name: 'MultiEmbed', url: `https://multiembed.mov/?video_id=${tmdbId||imdbId}&tmdb=1` });
     embeds.push({ name: 'Smashy', url: `https://embed.smashystream.com/playere.php?${tmdbId?'tmdb='+tmdbId:'imdb='+imdbId}` });
   }
