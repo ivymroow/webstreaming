@@ -117,7 +117,10 @@ function H(){return'<div class="loading-screen" id="HL"><div class="spinner"></d
 
 async function L(){
   try{
-    if(state.user){(async()=>{try{const cw=await api('GET','/api/progress/list?status=watching');if(cw?.length){qs('#main').insertAdjacentHTML('afterbegin','<div class="section"><h2 class="section-title">continue watching</h2><div class="grid" id="cwGrid"></div></div>');G('cwGrid',cw.map(i=>({id:i.item_id,title:i.title,poster:i.poster,year:null,type:i.type,progress:i.watched&&i.duration?i.watched/i.duration:0,season:i.season,episode:i.episode})))}}catch{}})()}
+    // Load continue watching first
+    let cwData=[]
+    if(state.user){try{cwData=await api('GET','/api/progress/list?status=watching')}catch{}}
+    if(cwData.length){qs('#main').insertAdjacentHTML('afterbegin','<div class="section"><h2 class="section-title">continue watching</h2><div class="grid" id="cwGrid"></div></div>');G('cwGrid',cwData.map(i=>({id:i.item_id,title:i.title,poster:i.poster,year:null,type:i.type,progress:i.watched&&i.duration?i.watched/i.duration:0,season:i.season,episode:i.episode})))}
     const[a,b,c]=await Promise.all([api('GET','/api/trending'),api('GET','/api/popular'),api('GET','/api/popular?type=tv')]);qs('#HL').style.display='none'
     if(!a.length&&!b.length&&!c.length){qs('#main').innerHTML='<div class="loading-screen"><p>no backend connected. try searching.</p></div>';return}
     window._trending=a
