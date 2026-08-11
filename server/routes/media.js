@@ -1,6 +1,7 @@
 const express = require('express');
 const metadata = require('../services/metadata');
 const embeds = require('../embeds');
+const anilist = require('../anilist');
 const { asyncHandler } = require('../middleware/errors');
 const { requireQuery } = require('../middleware/validation');
 const axios = require('axios');
@@ -66,13 +67,6 @@ async function convertImdbToTmdb(imdb, type) {
   } catch { return null; }
 }
 
-async function getAniListId(tmdb) {
-  try {
-    const { data } = await axios.get(`https://plexanibridge-api.elias.eu.org/api/v2/search?id=${tmdb}`, { timeout: 8000 });
-    const keys = Object.keys(data);
-    return keys.length ? keys[0] : null;
-  } catch { return null; }
-}
 
 router.get('/movie/:id/sources', asyncHandler(async (req, res) => {
   let id = req.params.id, tmdb = null;
@@ -95,7 +89,7 @@ router.get('/show/:id/sources', asyncHandler(async (req, res) => {
   if (!season || !episode) return res.json([]);
   if (id.startsWith('tmdb-')) {
     tmdb = id.replace('tmdb-', '');
-    anilist = await getAniListId(tmdb);
+    anilist = await anilist.getAniListId(tmdb);
     id = await convertTmdb(tmdb, 'tv') || id;
   } else if (id.startsWith('tt')) {
     tmdb = await convertImdbToTmdb(id, 'tv');
