@@ -38,10 +38,14 @@ async function saveProgress(userId, item, token) {
   const c = await getClient(token);
   const { id, title, poster, type, season, episode, duration, watched, status } = item;
   const se = season || 0, ep = episode || 0;
+  // Preserve existing poster/title if new ones are empty
+  const old = await c.from('watch_progress').select('poster,title').eq('user_id', userId).eq('item_id', id).eq('season', se).eq('episode', ep).maybeSingle();
+  const p = poster || (old?.data?.poster) || '';
+  const t = title || (old?.data?.title) || '';
   // Delete existing first to avoid duplicate constraint issues
   await c.from('watch_progress').delete().eq('user_id', userId).eq('item_id', id).eq('season', se).eq('episode', ep);
   const { error } = await c.from('watch_progress').insert({
-    user_id: userId, item_id: id, title, poster, type,
+    user_id: userId, item_id: id, title: t, poster: p, type,
     season: se, episode: ep,
     duration: duration || 0, watched: watched || 0,
     status: status || 'watching',
