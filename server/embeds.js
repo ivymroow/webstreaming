@@ -5,8 +5,8 @@ async function getEmbeds(imdbId, tmdbId, season, episode, anilistId) {
     if (tmdbId) {
       embeds.push({ name: 'VidSrc.to', url: `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}` });
       if (anilistId) {
-        embeds.push({ name: 'VidPlus (Sub)', url: `https://player.vidplus.to/embed/anime/${anilistId}/${episode}` });
-        embeds.push({ name: 'VidPlus (Dub)', url: `https://player.vidplus.to/embed/anime/${anilistId}/${episode}?dub=true` });
+        embeds.push({ name: 'VidPlus (Sub)', url: `https://player.vidplus.to/embed/anime/${anilistId}/${episode}?autoplay=true` });
+        embeds.push({ name: 'VidPlus (Dub)', url: `https://player.vidplus.to/embed/anime/${anilistId}/${episode}?dub=true&autoplay=true` });
         embeds.push({ name: 'VidLink (Anime)', url: `https://vidlink.pro/anime/${anilistId}/${episode}` });
       }
       embeds.push({ name: 'VidLink', url: `https://vidlink.pro/tv/${tmdbId}/${season}/${episode}` });
