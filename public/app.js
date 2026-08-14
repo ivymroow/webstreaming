@@ -63,7 +63,7 @@ function navigate(v,d){
 window.addEventListener('popstate',()=>{
   if(state.player)return
   const p=window.location.pathname
-  if(p==='/'){state.view='home';render()}
+  if(p==='/'){state.view=state.user?'home':'welcome';render()}
   else if(p==='/profile'){state.view='profile';render()}
   else if(p==='/notice'){state.view='notice';render()}
   else if(p==='/socials'){state.view='socials';render()}
@@ -399,7 +399,7 @@ async function doAuth(){
   try{const r=await api('POST',authMode==='signup'?'/api/auth/signup':'/api/auth/signin',body);if(r.ok){state.user=r.user}hideAuth();render()}catch(e){qs('#authError').textContent=e.message}
 }
 function toggleAuthMode(){authMode=authMode==='signin'?'signup':'signin';qs('#authModalTitle').textContent=authMode==='signin'?'sign in':'sign up';qs('#authToggle').innerHTML=authMode==='signin'?'don\'t have an account? <a href=\"#\" onclick=\"toggleAuthMode();return false\" style=\"color:var(--primary)\">sign up</a>':'already have an account? <a href=\"#\" onclick=\"toggleAuthMode();return false\" style=\"color:var(--primary)\">sign in</a>'}
-function signOut(){fetch((state.backendUrl||'')+'/api/auth/signout',{method:'POST',credentials:'include'}).catch(()=>{});state.user=null;render()}
+function signOut(){fetch((state.backendUrl||'')+'/api/auth/signout',{method:'POST',credentials:'include'}).catch(()=>{});state.user=null;state.view='welcome';history.pushState(null,'','/');render()}
 
 function PR(){return'<div class="profile"><button class="detail-back" onclick="navigate(\'home\')"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg> Back</button><h1>Profile</h1><div class="profile-search"><input type="text" id="psInput" class="profile-search-input" placeholder="Search movies & shows to add..." autocomplete="off"><div class="profile-search-drop" id="psDrop" style="display:none"></div></div><div class="profile-tabs"><button class="profile-tab active" data-tab="watching">Continue Watching</button><button class="profile-tab" data-tab="watchlist">Watchlist</button><button class="profile-tab" data-tab="watched">Watched</button></div><div class="grid" id="profileGrid"></div><div class="loading-screen" id="pLd"><div class="spinner"></div><p>Loading...</p></div></div>'}
 async function PL(){
@@ -423,7 +423,7 @@ async function addWatchlistFromProfile(id,title,poster,type){
 function restoreFromHash(){const hash=window.location.hash.slice(1);if(!hash||hash==='/'||hash==='')return;if(hash==='profile'){state.view='profile';return};if(hash==='notice'){state.view='notice';return};const params=new URLSearchParams(hash);if(params.has('q')){state.query=params.get('q');state.view='search'}else if(params.has('id')){state.view='detail';const type=params.get('type')||(params.has('s')?'tv':'movie');const se=parseInt(params.get('s')),ep=parseInt(params.get('e'));if(se&&ep&&type==='tv'){selectedSeason=se;selectedEpisode=ep};state.data={id:params.get('id'),type,title:params.get('t')||'',year:params.get('y')||'',season:type==='tv'?se||null:null,episode:type==='tv'?ep||null:null,_playHash:params.get('hash')||null}}else state.view='home'}
 
 async function init(){
-  try{await detect();if(state.mode==='backend'){try{const u=await api('GET','/api/auth/user');state.user=u}catch{}};if(state.mode==='standalone'&&!navigator.onLine){qs('#app').innerHTML='<div class="loading-screen"><h2>No backend</h2><p>Connect to the internet or configure a backend URL.</p></div>';return};const p=window.location.pathname;const h=window.location.hash;if(h&&h.length>2){restoreFromHash();render()}else if(p==='/'){state.view='home';render()}else if(p==='/profile'){state.view='profile';render()}else if(p==='/notice'){state.view='notice';render()}else if(p==='/socials'){state.view='socials';render()}else{state.view='welcome';render()}if(state.view==='welcome'&&state.user)state.view='home';return}catch(e){console.error('Init:',e);qs('#main').innerHTML='<div class="error-view"><h2>Failed to load</h2><p>'+esc(e.message||'Unknown error')+'</p><button class="btn btn-primary" onclick="location.reload()">Retry</button></div>'}
+  try{await detect();if(state.mode==='backend'){try{const u=await api('GET','/api/auth/user');state.user=u}catch{}};if(state.mode==='standalone'&&!navigator.onLine){qs('#app').innerHTML='<div class="loading-screen"><h2>No backend</h2><p>Connect to the internet or configure a backend URL.</p></div>';return};const p=window.location.pathname;const h=window.location.hash;if(h&&h.length>2){restoreFromHash();render()}else if(p==='/'){state.view=state.user?'home':'welcome';render()}else if(p==='/profile'){state.view='profile';render()}else if(p==='/notice'){state.view='notice';render()}else if(p==='/socials'){state.view='socials';render()}else{state.view='welcome';render()}return}catch(e){console.error('Init:',e);qs('#main').innerHTML='<div class="error-view"><h2>Failed to load</h2><p>'+esc(e.message||'Unknown error')+'</p><button class="btn btn-primary" onclick="location.reload()">Retry</button></div>'}
 }
 
 // Scroll effect on header
