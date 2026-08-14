@@ -14,18 +14,24 @@ function getClient() {
   return admin;
 }
 
+function authError(message) {
+  const err = new Error(message);
+  err.status = 401;
+  return err;
+}
+
 async function signUp(username, password, email) {
   const userEmail = email || `${username}@ws.local`;
   const { data, error } = await sb.auth.signUp({ email: userEmail, password, options: { data: { username } } });
-  if (error) throw new Error(error.message);
-  if (!data.session) throw new Error('Check Supabase dashboard: disable email confirmation');
+  if (error) throw authError(error.message);
+  if (!data.session) throw authError('Check Supabase dashboard: disable email confirmation');
   return { user: { id: data.user.id, username } };
 }
 
 async function signIn(username, password) {
   const userEmail = `${username}@ws.local`;
   const { data, error } = await sb.auth.signInWithPassword({ email: userEmail, password });
-  if (error) throw new Error(error.message);
+  if (error) throw authError(error.message);
   return { user: { id: data.user.id, username: data.user.user_metadata?.username || username } };
 }
 
