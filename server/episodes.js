@@ -2,6 +2,7 @@ const axios = require('axios');
 const cache = require('./cache');
 
 const api = axios.create({ timeout: 10000 });
+const TMDB_KEY = process.env.TMDB_KEY || '64caa5119a1abe79e6a57a9069c03df5';
 
 async function lookupByIMDB(imdbId, titleHint) {
   const key = `tvmaze:lookup:${imdbId}`;
@@ -74,43 +75,90 @@ async function getEpisodes(imdbId, seasonNumber, titleHint) {
   } catch { return []; }
 }
 
-async function getAllEpisodes(imdbId, titleHint) {
-  const show = await lookupByIMDB(imdbId, titleHint);
-  if (!show) return [];
-
-  const key = `tvmaze:episodes:all:${show.id}`;
+async function getTmdbId(id) {
+  if (!id) return null;
+  if (String(id).startsWith('tmdb-')) return String(id).replace('tmdb-', '');
+  if (!String(id).startsWith('tt')) return null;
+  const imdbId = id;
+  const key = `tmdb:find:${imdbId}`;
   const cached = cache.get(key);
   if (cached) return cached;
-
   try {
-    const { data } = await api.get(`https://api.tvmaze.com/shows/${show.id}/episodes`);
+    const { data } = await api.get(`https://api.themoviedb.org/3/find/${imdbId}?api_key=${TMDB_KEY}&external_source=imdb_id`);
+    const items = data.tv_results || [];
+    const id = items.length ? String(items[0].id) : null;
+    if (id) cache.set(key, id, 'tmdb');
+    return id;
+  } catch { return null; }
+}
+
+async function getSpecials(imdbId) {
+  const tmdbId = await getTmdbId(imdbId);
+  if (!tmdbId) return [];
+  const key = `tmdb:specials:${tmdbId}`;
+  const cached = cache.get(key);
+  if (cached) return cached;
+  try {
+    const { data } = await api.get(`https://api.themoviedb.org/3/tv/${tmdbId}/season/0?api_key=${TMDB_KEY}`);
     const now = new Date();
-    const grouped = {};
-    for (const e of data) {
-      const s = e.season || 1;
-      if (!grouped[s]) grouped[s] = [];
-      grouped[s].push({
-        id: e.id, number: e.number, name: e.name || `Episode ${e.number}`,
-        summary: (e.summary || '').replace(/<[^>]+>/g, '').trim(),
-        airdate: e.airdate || '', runtime: e.runtime || null,
-        image: e.image?.medium || '',
-      });
-    }
-
-    // Sort episodes within each season and filter out future seasons
-    const result = Object.entries(grouped)
-      .sort(([a], [b]) => parseInt(a) - parseInt(b))
-      .filter(([_, eps]) => eps.length > 0)
-      .map(([season, eps]) => ({
-        season: parseInt(season),
-        episodes: eps.sort((a, b) => a.number - b.number),
-      }))
-      // Remove seasons where every episode airdate is in the future (unreleased)
-      .filter(s => s.episodes.some(e => !e.airdate || new Date(e.airdate) <= now));
-
-    cache.set(key, result, 'tmdb');
-    return result;
+    const specials = (data.episodes || [])
+      .filter(e => !e.air_date || new Date(e.air_date) <= now)
+      .sort((a, b) => a.episode_number - b.episode_number)
+      .map(e => ({
+        id: 'tmdb-' + e.id, number: e.episode_number, name: e.name || `Special ${e.episode_number}`,
+        summary: (e.overview || '').trim(),
+        airdate: e.air_date || '',
+        runtime: e.runtime || null,
+        image: e.still_path ? 'https://image.tmdb.org/t/p/w300' + e.still_path : '',
+      }));
+    cache.set(key, specials, 'tmdb');
+    return specials;
   } catch { return []; }
+}
+
+async function getAllEpisodes(imdbId, titleHint) {
+  const specials = await getSpecials(imdbId);
+  const show = await lookupByIMDB(imdbId, titleHint);
+
+  let groups = [];
+  if (show) {
+    const key = `tvmaze:episodes:all:${show.id}`;
+    const cached = cache.get(key);
+    if (cached) {
+      groups = cached;
+    } else {
+      try {
+        const { data } = await api.get(`https://api.tvmaze.com/shows/${show.id}/episodes`);
+        const now = new Date();
+        const grouped = {};
+        for (const e of data) {
+          const s = e.season == null ? 1 : e.season;
+          if (s === 0) continue;
+          if (!grouped[s]) grouped[s] = [];
+          grouped[s].push({
+            id: e.id, number: e.number, name: e.name || `Episode ${e.number}`,
+            summary: (e.summary || '').replace(/<[^>]+>/g, '').trim(),
+            airdate: e.airdate || '', runtime: e.runtime || null,
+            image: e.image?.medium || '',
+          });
+        }
+
+        groups = Object.entries(grouped)
+          .sort(([a], [b]) => parseInt(a) - parseInt(b))
+          .filter(([_, eps]) => eps.length > 0)
+          .map(([season, eps]) => ({
+            season: parseInt(season),
+            episodes: eps.sort((a, b) => a.number - b.number),
+          }))
+          .filter(s => s.episodes.some(e => !e.airdate || new Date(e.airdate) <= now));
+
+        cache.set(key, groups, 'tmdb');
+      } catch { groups = []; }
+    }
+  }
+
+  if (specials.length) groups.push({ season: 0, episodes: specials });
+  return groups;
 }
 
 module.exports = { lookupByIMDB, getSeasons, getEpisodes, getAllEpisodes };

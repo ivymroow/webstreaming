@@ -161,7 +161,7 @@ function D(){state._savedThis=false;return'<div class="detail"><button class="de
 async function LD(){
   const{id,type,title:t,year:y,season:s,episode:ep}=state.data
   const tHint=t||'',yHint=y||''
-  if(s&&ep&&type==='tv'){selectedSeason=s;selectedEpisode=ep}
+  if(s!=null&&ep!=null&&type==='tv'){selectedSeason=s;selectedEpisode=ep}
   try{
     const d=await api('GET','/api/movie/'+id+'?type='+type+'&title='+encodeURIComponent(tHint)+'&year='+yHint)
     state.data._title=d.title||'';state.data._year=d.year||'';state.data._poster=d.poster||state.data.poster||'';if(d.id&&d.id!==id)state.data.id=d.id;if(d._tmdbId)state.data._tmdbId=d._tmdbId
@@ -193,10 +193,10 @@ function RD(d,srces,episodes){
   if(state.user){wlBtn='<button class="wl-btn" id="wlBtn" onclick="toggleWatchlist()">Loading...</button>';setTimeout(async()=>{try{const r=await api('GET','/api/watchlist/check?id='+d.id);const b=qs('#wlBtn');if(b){b.textContent=r.inList?'✓ In Watchlist':'+ Watchlist';b.className='wl-btn'+(r.inList?' in-list':'')}}catch{}},50)}
   let epHTML=''
   if(isTv){
-    if(state.data?.season&&state.data?.episode){selectedSeason=state.data.season;selectedEpisode=state.data.episode;state.data.season=null;state.data.episode=null}
+    if(state.data?.season!=null&&state.data?.episode!=null){selectedSeason=state.data.season;selectedEpisode=state.data.episode;state.data.season=null;state.data.episode=null}
     else if(!selectedSeason||!episodes.some(x=>x.season===selectedSeason)){selectedSeason=episodes[0]?.season||1;selectedEpisode=episodes[0]?.episodes?.[0]?.number||1}
     window._eps=episodes
-    epHTML='<div class="episode-picker"><div class="sources-title">Select Episode</div><div class="episode-controls"><select id="seasonSelect">'+episodes.map(s=>'<option value="'+s.season+'">Season '+s.season+' ('+s.episodes.length+' eps)</option>').join('')+'</select><select id="episodeSelect"></select></div><div id="episodeInfo" class="episode-info"></div><div class="sources-section" style="margin-top:12px"><div class="sources-title">Sources</div><div class="sources-list" id="sl"><div class="loading-screen" style="padding:12px"><div class="spinner"></div></div></div></div></div>'
+    epHTML='<div class="episode-picker"><div class="sources-title">Select Episode</div><div class="episode-controls"><select id="seasonSelect">'+episodes.map(s=>'<option value="'+s.season+'">'+(s.season===0?'Specials':'Season '+s.season)+' ('+s.episodes.length+' eps)</option>').join('')+'</select><select id="episodeSelect"></select></div><div id="episodeInfo" class="episode-info"></div><div class="sources-section" style="margin-top:12px"><div class="sources-title">Sources</div><div class="sources-list" id="sl"><div class="loading-screen" style="padding:12px"><div class="spinner"></div></div></div></div></div>'
   }
   qs('#dL').outerHTML='<div class="detail-hero"><div class="detail-poster">'+(posterUrl?'<img src="'+posterUrl+'" alt="'+esc(t)+'" loading="lazy" referrerpolicy="no-referrer" onerror="this.src=\'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 200 300%22><rect fill=%22%231a1a1a%22 width=%22200%22 height=%22300%22/><text x=%22100%22 y=%22160%22 text-anchor=%22middle%22 font-size=%2248%22 fill=%22%23555%22>🎬</text></svg>\'">':'<div class="card-placeholder" style="aspect-ratio:2/3">🎬</div>')+'</div><div class="detail-info"><h1 class="detail-title">'+esc(t)+'</h1><div class="detail-meta">'+(y?'<span>'+y+'</span>':'')+(rt?'<span>'+rt+'</span>':'')+'</div><div class="detail-genres">'+g.map(x=>'<span>'+x+'</span>').join('')+'</div>'+(r?'<div class="detail-rating"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg> '+r+'/10</div>':'')+(wlBtn?'<div style="margin-bottom:16px">'+wlBtn+'</div>':'')+'<p class="detail-overview">'+esc(o)+'</p>'+(c?'<p class="detail-cast"><strong>Cast:</strong> '+esc(c)+'</p>':'')+epHTML+(isTv?'':'<div class="sources-section"><div class="sources-title">Sources</div><div class="sources-list" id="sl"></div></div>')+'</div></div>'
 
@@ -282,7 +282,7 @@ function getDetailHash(){
   if(d.type==='tv')h+='&type=tv'
   if(d.title)h+='&t='+encodeURIComponent(d.title)
   if(d.year)h+='&y='+d.year
-  if(d.type==='tv'&&selectedSeason&&selectedEpisode)h+='&s='+selectedSeason+'&e='+selectedEpisode
+  if(d.type==='tv'&&selectedSeason!=null&&selectedEpisode!=null)h+='&s='+selectedSeason+'&e='+selectedEpisode
   return h
 }
 
@@ -420,7 +420,7 @@ async function addWatchlistFromProfile(id,title,poster,type){
   try{await api('POST','/api/watchlist/add',{id,title:title||'',poster:poster||'',type:type||'movie'});alert('added to watchlist')}catch(e){alert(e.message)}
 }
 
-function restoreFromHash(){const hash=window.location.hash.slice(1);if(!hash||hash==='/'||hash==='')return;if(hash==='profile'){state.view='profile';return};if(hash==='notice'){state.view='notice';return};const params=new URLSearchParams(hash);if(params.has('q')){state.query=params.get('q');state.view='search'}else if(params.has('id')){state.view='detail';const type=params.get('type')||(params.has('s')?'tv':'movie');const se=parseInt(params.get('s')),ep=parseInt(params.get('e'));if(se&&ep&&type==='tv'){selectedSeason=se;selectedEpisode=ep};state.data={id:params.get('id'),type,title:params.get('t')||'',year:params.get('y')||'',season:type==='tv'?se||null:null,episode:type==='tv'?ep||null:null,_playHash:params.get('hash')||null}}else state.view='home'}
+function restoreFromHash(){const hash=window.location.hash.slice(1);if(!hash||hash==='/'||hash==='')return;if(hash==='profile'){state.view='profile';return};if(hash==='notice'){state.view='notice';return};const params=new URLSearchParams(hash);if(params.has('q')){state.query=params.get('q');state.view='search'}else if(params.has('id')){state.view='detail';const type=params.get('type')||(params.has('s')?'tv':'movie');const se=parseInt(params.get('s')),ep=parseInt(params.get('e'));if(!isNaN(se)&&!isNaN(ep)&&type==='tv'){selectedSeason=se;selectedEpisode=ep};state.data={id:params.get('id'),type,title:params.get('t')||'',year:params.get('y')||'',season:type==='tv'?(isNaN(se)?null:se):null,episode:type==='tv'?(isNaN(ep)?null:ep):null,_playHash:params.get('hash')||null}}else state.view='home'}
 
 async function init(){
   try{await detect();if(state.mode==='backend'){try{const u=await api('GET','/api/auth/user');state.user=u}catch{}};if(state.mode==='standalone'&&!navigator.onLine){qs('#app').innerHTML='<div class="loading-screen"><h2>No backend</h2><p>Connect to the internet or configure a backend URL.</p></div>';return};const p=window.location.pathname;const h=window.location.hash;if(h&&h.length>2){restoreFromHash();render()}else if(p==='/'){state.view=state.user?'home':'welcome';render()}else if(p==='/profile'){state.view='profile';render()}else if(p==='/notice'){state.view='notice';render()}else if(p==='/socials'){state.view='socials';render()}else{state.view='welcome';render()}return}catch(e){console.error('Init:',e);qs('#main').innerHTML='<div class="error-view"><h2>Failed to load</h2><p>'+esc(e.message||'Unknown error')+'</p><button class="btn btn-primary" onclick="location.reload()">Retry</button></div>'}

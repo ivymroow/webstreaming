@@ -1,7 +1,7 @@
 async function getEmbeds(imdbId, tmdbId, season, episode, anilistId) {
   const embeds = [];
 
-  if (season && episode) {
+  if (typeof season === 'number' && typeof episode === 'number') {
     if (tmdbId) {
       embeds.push({ name: 'VidSrc.to', url: `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}` });
       embeds.push({ name: 'VidLink', url: `https://vidlink.pro/tv/${tmdbId}/${season}/${episode}` });
