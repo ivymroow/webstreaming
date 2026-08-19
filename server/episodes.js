@@ -116,6 +116,29 @@ async function getSpecials(imdbId) {
   } catch { return []; }
 }
 
+function isPlayableSpecial(item) {
+  const name = normalizeEpisode(item);
+  const summary = (item.summary || '').toLowerCase();
+  const text = `${name} ${summary}`;
+  const blocked = [
+    'behind the scenes',
+    'making of',
+    'music video',
+    'trailer',
+    'teaser',
+    'promo',
+    'preview',
+    'recap',
+    'sneak peek',
+    'featurette',
+    'interview',
+    'deleted scene',
+    'blooper',
+    'gag reel',
+  ];
+  return !blocked.some(term => text.includes(term));
+}
+
 function normalizeEpisode(item) {
   return (item.name || '')
     .toLowerCase()
@@ -128,6 +151,7 @@ function mergeSpecials(primary, fallback) {
   const merged = [];
 
   for (const item of [...primary, ...fallback]) {
+    if (!isPlayableSpecial(item)) continue;
     const key = `${normalizeEpisode(item)}:${item.airdate || ''}`;
     if (seen.has(key)) continue;
     seen.add(key);
