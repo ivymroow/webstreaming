@@ -217,8 +217,9 @@ async function getAllEpisodes(imdbId, titleHint) {
   }
 
   const specials = mergeSpecials(tmdbSpecials, tvmazeSpecials);
-  if (specials.length) groups.push({ season: 0, episodes: specials });
-  return groups;
+  const result = groups.slice();
+  if (specials.length) result.push({ season: 0, episodes: specials });
+  return result;
 }
 
 module.exports = { lookupByIMDB, getSeasons, getEpisodes, getAllEpisodes };
