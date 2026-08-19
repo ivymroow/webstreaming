@@ -116,13 +116,40 @@ async function getSpecials(imdbId) {
   } catch { return []; }
 }
 
+function normalizeEpisode(item) {
+  return (item.name || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function mergeSpecials(primary, fallback) {
+  const seen = new Set();
+  const merged = [];
+
+  for (const item of [...primary, ...fallback]) {
+    const key = `${normalizeEpisode(item)}:${item.airdate || ''}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(item);
+  }
+
+  return merged.sort((a, b) => {
+    const dateA = a.airdate ? new Date(a.airdate).getTime() : 0;
+    const dateB = b.airdate ? new Date(b.airdate).getTime() : 0;
+    if (dateA !== dateB) return dateA - dateB;
+    return (a.number || 0) - (b.number || 0);
+  });
+}
+
 async function getAllEpisodes(imdbId, titleHint) {
-  const specials = await getSpecials(imdbId);
+  const tmdbSpecials = await getSpecials(imdbId);
   const show = await lookupByIMDB(imdbId, titleHint);
 
   let groups = [];
+  let tvmazeSpecials = [];
   if (show) {
-    const key = `tvmaze:episodes:all:${show.id}`;
+    const key = `tvmaze:episodes:all:v2:${show.id}`;
     const cached = cache.get(key);
     if (cached) {
       groups = cached;
@@ -133,7 +160,15 @@ async function getAllEpisodes(imdbId, titleHint) {
         const grouped = {};
         for (const e of data) {
           const s = e.season == null ? 1 : e.season;
-          if (s === 0) continue;
+          if (s === 0) {
+            tvmazeSpecials.push({
+              id: e.id, number: e.number, name: e.name || `Special ${e.number}`,
+              summary: (e.summary || '').replace(/<[^>]+>/g, '').trim(),
+              airdate: e.airdate || '', runtime: e.runtime || null,
+              image: e.image?.medium || '',
+            });
+            continue;
+          }
           if (!grouped[s]) grouped[s] = [];
           grouped[s].push({
             id: e.id, number: e.number, name: e.name || `Episode ${e.number}`,
@@ -157,6 +192,7 @@ async function getAllEpisodes(imdbId, titleHint) {
     }
   }
 
+  const specials = mergeSpecials(tmdbSpecials, tvmazeSpecials);
   if (specials.length) groups.push({ season: 0, episodes: specials });
   return groups;
 }
