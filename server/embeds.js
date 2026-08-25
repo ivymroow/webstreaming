@@ -2,12 +2,15 @@ async function getEmbeds(imdbId, tmdbId, season, episode, anilistId) {
   const embeds = [];
   const isEpisode = typeof season === 'number' && typeof episode === 'number';
   const isSpecial = isEpisode && season === 0;
+  // VidSrc.to is known to redirect to the wrong show for these titles.
+  const vidSrcBlocked = new Set(['tt37692332', '296756']);
+  const vidSrcBad = vidSrcBlocked.has(imdbId) || vidSrcBlocked.has(tmdbId);
 
   if (isEpisode) {
     if (isSpecial && !tmdbId) return [];
 
     if (tmdbId) {
-      embeds.push({ name: 'VidSrc.to', url: `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}` });
+      if (!vidSrcBad) embeds.push({ name: 'VidSrc.to', url: `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}` });
       embeds.push({ name: 'VidLink', url: `https://vidlink.pro/tv/${tmdbId}/${season}/${episode}` });
       embeds.push({ name: 'MultiEmbed', url: `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&s=${season}&e=${episode}` });
       embeds.push({ name: 'Smashy', url: `https://embed.smashystream.com/playere.php?tmdb=${tmdbId}&s=${season}&e=${episode}` });
@@ -22,7 +25,7 @@ async function getEmbeds(imdbId, tmdbId, season, episode, anilistId) {
     }
   } else {
     if (tmdbId) {
-      embeds.push({ name: 'VidSrc.to', url: `https://vidsrc.to/embed/movie/${tmdbId}` });
+      if (!vidSrcBad) embeds.push({ name: 'VidSrc.to', url: `https://vidsrc.to/embed/movie/${tmdbId}` });
       embeds.push({ name: 'VidLink', url: `https://vidlink.pro/movie/${tmdbId}` });
     }
     embeds.push({ name: '2Embed', url: `https://www.2embed.cc/embed/${imdbId}` });
