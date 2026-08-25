@@ -4,6 +4,13 @@ const TMDB_KEY = process.env.TMDB_KEY || '64caa5119a1abe79e6a57a9069c03df5';
 const TMDB_IMG = 'https://image.tmdb.org/t/p/w500';
 const http = axios.create({ timeout: 20000, headers: { 'User-Agent': 'web-streaming/1.0' } });
 
+// Titles whose embed providers are known to redirect to the wrong show.
+// Keys may be IMDb IDs (tt...) or TMDb IDs. Values are the user-facing reason.
+const BLOCKED_EMBEDS = {
+  'tt37692332': 'President Curtis is currently unavailable. Embed providers are temporarily redirecting to an incorrect show ("Our Cartoon President") due to indexing conflicts.',
+  '296756': 'President Curtis is currently unavailable. Embed providers are temporarily redirecting to an incorrect show ("Our Cartoon President") due to indexing conflicts.',
+};
+
 async function fetchWithRetry(url, retries = 2) {
   for (let i = 0; i <= retries; i++) {
     try { return await http.get(url); } catch (e) {
@@ -80,6 +87,11 @@ async function details(id, titleHint, yearHint) {
         const tmdbId = items[0].id;
         if (!result.poster && items[0].poster_path) result.poster = TMDB_IMG + items[0].poster_path;
         result._tmdbId = tmdbId;
+        const relDate = items[0].release_date || items[0].first_air_date || '';
+        if (relDate) {
+          result.releaseDate = relDate;
+          result.unreleased = new Date(relDate) > new Date();
+        }
         const { data: credits } = await http.get(`https://api.themoviedb.org/3/${result.type === 'tv' ? 'tv' : 'movie'}/${tmdbId}/credits`, {
           params: { api_key: TMDB_KEY }, timeout: 8000,
         });
@@ -87,6 +99,11 @@ async function details(id, titleHint, yearHint) {
         if (tmdbCast.length > result.cast.length) result.cast = tmdbCast;
       }
     } catch {}
+  }
+  const blockReason = BLOCKED_EMBEDS[result.id] || BLOCKED_EMBEDS[String(result._tmdbId)];
+  if (blockReason) {
+    result.unavailable = true;
+    result.unavailableReason = blockReason;
   }
   return result;
 }
@@ -131,4 +148,4 @@ async function popularShows() {
   } catch { return []; }
 }
 
-module.exports = { search, details, trending, popularMovies, popularShows, TMDB_IMG };
+module.exports = { search, details, trending, popularMovies, popularShows, TMDB_IMG, BLOCKED_EMBEDS };

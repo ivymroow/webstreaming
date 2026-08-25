@@ -1,5 +1,6 @@
 const express = require('express');
 const metadata = require('../services/metadata');
+const { BLOCKED_EMBEDS } = require('../imdb');
 const embeds = require('../embeds');
 const anilist = require('../anilist');
 const { asyncHandler } = require('../middleware/errors');
@@ -38,11 +39,18 @@ router.get('/movie/:id', asyncHandler(async (req, res) => {
         if (!imdbId) {
           try { const ext = await axios.get(`https://api.themoviedb.org/3/${ep}/${tmdbId}/external_ids?api_key=${K}`, { timeout: 8000 }); imdbId = ext.data.imdb_id; } catch {}
         }
+        const relDate = info.release_date || info.first_air_date || '';
+        const isFuture = relDate ? new Date(relDate) > new Date() : false;
+        const blockReason = BLOCKED_EMBEDS[imdbId] || BLOCKED_EMBEDS[tmdbId];
         res.json({
-          id: imdbId || id, title: info.title || info.name || '', year: (info.release_date || info.first_air_date || '').slice(0, 4),
+          id: imdbId || id, title: info.title || info.name || '', year: relDate.slice(0, 4),
           poster: info.poster_path ? 'https://image.tmdb.org/t/p/w500' + info.poster_path : '',
           overview: info.overview || '', rating: info.vote_average || null,
           type: isTv ? 'tv' : 'movie', _tmdbId: tmdbId,
+          unreleased: isFuture,
+          releaseDate: relDate,
+          unavailable: !!blockReason,
+          unavailableReason: blockReason || null,
         });
         return;
       }
