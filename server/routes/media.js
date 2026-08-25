@@ -1,6 +1,5 @@
 const express = require('express');
 const metadata = require('../services/metadata');
-const { BLOCKED_EMBEDS } = require('../imdb');
 const embeds = require('../embeds');
 const anilist = require('../anilist');
 const { asyncHandler } = require('../middleware/errors');
@@ -41,7 +40,6 @@ router.get('/movie/:id', asyncHandler(async (req, res) => {
         }
         const relDate = info.release_date || info.first_air_date || '';
         const isFuture = relDate ? new Date(relDate) > new Date() : false;
-        const blockReason = BLOCKED_EMBEDS[imdbId] || BLOCKED_EMBEDS[tmdbId];
         res.json({
           id: imdbId || id, title: info.title || info.name || '', year: relDate.slice(0, 4),
           poster: info.poster_path ? 'https://image.tmdb.org/t/p/w500' + info.poster_path : '',
@@ -49,8 +47,6 @@ router.get('/movie/:id', asyncHandler(async (req, res) => {
           type: isTv ? 'tv' : 'movie', _tmdbId: tmdbId,
           unreleased: isFuture,
           releaseDate: relDate,
-          unavailable: !!blockReason,
-          unavailableReason: blockReason || null,
         });
         return;
       }
