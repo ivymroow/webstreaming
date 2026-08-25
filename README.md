@@ -1,4 +1,4 @@
 # webstreaming
 simple player lol
 
-web-streaming.website
+[web-streaming.site](https://web-streaming.site/)
