@@ -238,7 +238,6 @@
 .welcome-card .beta-tag { font-size: 14px; color: var(--primary); font-weight: 700; }
 .welcome-card p { color: var(--text-muted); font-size: 15px; line-height: 1.7; margin-bottom: 16px; }
 .welcome-list { list-style: none; text-align: left; max-width: 360px; margin: 0 auto 24px; color: var(--text-secondary); font-size: 14px; line-height: 2.2; }
-.welcome-list li::before { content: '\2713 '; color: #4ade80; font-weight: 700; margin-right: 6px; }
 
 /* User & Profile */
 .user-menu { display: flex; align-items: center; gap: 8px; }
