@@ -288,7 +288,39 @@ function getDetailHash(){
 function ifr(url,title){
   document.title=title+' - webstreaming'
   const u=url.replace(/'/g,'%27')
-  return'<div class="player-container"><button class="detail-back" onclick="cp()"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>back</button><div class="player-wrapper"><iframe src="'+u+'" allow="autoplay;encrypted-media;fullscreen" allowfullscreen referrerpolicy="no-referrer" style="position:absolute;inset:0;width:100%;height:100%;border:none;background:#000"></iframe></div></div>'
+  const eps=window._eps||[]
+  const seasonOpts=eps.map(s=>'<option value="'+s.season+'"'+(s.season===selectedSeason?' selected':'')+'>Season '+s.season+' ('+s.episodes.length+')</option>').join('')
+  const cur=eps.find(s=>s.season===selectedSeason)
+  const epOpts=cur?cur.episodes.map(e=>'<option value="'+e.number+'"'+(e.number===selectedEpisode?' selected':'')+'>'+e.number+'. '+esc(e.name)+'</option>').join(''):''
+  const drops=eps.length?'<select id="pvSeason" onchange="pvFillEpisodes()">'+seasonOpts+'</select><select id="pvEpisode" onchange="pvPlay()">'+epOpts+'</select>':''
+  return'<div class="player-container"><div class="player-toolbar"><button class="detail-back" onclick="cp()"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>back</button>'+drops+'</div><div class="player-wrapper"><iframe src="'+u+'" allow="autoplay;encrypted-media;fullscreen" allowfullscreen referrerpolicy="no-referrer" style="position:absolute;inset:0;width:100%;height:100%;border:none;background:#000"></iframe></div></div>'
+}
+
+function pvFillEpisodes(){
+  const ss=qs('#pvSeason');if(!ss)return
+  const season=parseInt(ss.value)
+  const cur=(window._eps||[]).find(s=>s.season===season);if(!cur)return
+  const es=qs('#pvEpisode');if(!es)return
+  es.innerHTML=cur.episodes.map(e=>'<option value="'+e.number+'">'+e.number+'. '+esc(e.name)+'</option>').join('')
+  es.value=cur.episodes[0]?.number||1
+  pvPlay()
+}
+async function pvPlay(){
+  const ss=qs('#pvSeason'),es=qs('#pvEpisode');if(!ss||!es)return
+  const season=parseInt(ss.value),episode=parseInt(es.value)
+  if(season===selectedSeason&&episode===selectedEpisode)return
+  selectedSeason=season;selectedEpisode=episode
+  updateHashForEpisode()
+  const title=state.data?._title||'',year=state.data?._year||''
+  let srcs=null
+  try{srcs=await api('GET','/api/show/'+state.data.id+'/sources?title='+encodeURIComponent(title)+'&year='+year+'&type=tv&season='+season+'&episode='+episode)}catch{}
+  if(!srcs||!srcs.length)return
+  state._sources=srcs
+  const src=srcs[0]
+  if(src.embedUrl){
+    state._embedUrl=src.embedUrl
+    qs('#main').innerHTML=ifr(src.embedUrl,title+' S'+String(season).padStart(2,'0')+'E'+String(episode).padStart(2,'0'))
+  }
 }
 
 async function streamAndPlay(hash,fi,dlId,ps,pl){
