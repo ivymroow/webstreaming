@@ -6,7 +6,7 @@ async function requireUser(req, res) {
     res.status(401).json({ error: 'Not signed in' });
     return null;
   }
-  return { id: session.id, username: session.username || 'user' };
+  return { id: session.id, username: session.username || 'user', email: session.email || '' };
 }
 
 async function requireUserMiddleware(req, res, next) {

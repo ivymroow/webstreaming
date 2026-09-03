@@ -36,7 +36,7 @@ function verify(token) {
 }
 
 function create(res, user) {
-  const payload = { id: user.id, username: user.username, exp: Math.floor(Date.now() / 1000) + SESSION_TTL };
+  const payload = { id: user.id, username: user.username, email: user.email, exp: Math.floor(Date.now() / 1000) + SESSION_TTL };
   res.cookie(COOKIE_NAME, sign(payload), { httpOnly: true, sameSite: 'lax', path: '/', maxAge: SESSION_TTL * 1000 });
 }
 

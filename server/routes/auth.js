@@ -9,8 +9,8 @@ const router = express.Router();
 
 router.post('/signup', requireBody('username'), requireBody('password'), asyncHandler(async (req, res) => {
   const result = await supabase.signUp(req.body.username, req.body.password, req.body.email);
-  sessions.create(res, result.user);
-  res.json({ ok: true, user: result.user });
+  if (!result.needsConfirmation) sessions.create(res, result.user);
+  res.json({ ok: true, user: result.user, needsConfirmation: result.needsConfirmation });
 }));
 
 router.post('/signin', requireBody('username'), requireBody('password'), asyncHandler(async (req, res) => {
@@ -23,6 +23,27 @@ router.get('/user', asyncHandler(async (req, res) => {
   const user = await requireUser(req, res);
   if (!user) return;
   res.json(user);
+}));
+
+router.get('/account', asyncHandler(async (req, res) => {
+  const user = await requireUser(req, res);
+  if (!user) return;
+  res.json(await supabase.getAccount(user.id));
+}));
+
+router.post('/account/email', requireBody('email'), asyncHandler(async (req, res) => {
+  const user = await requireUser(req, res);
+  if (!user) return;
+  const account = await supabase.updateEmail(user.id, req.body.email);
+  sessions.create(res, account);
+  res.json({ ok: true, user: account });
+}));
+
+router.post('/password-reset', asyncHandler(async (req, res) => {
+  const user = await requireUser(req, res);
+  if (!user) return;
+  await supabase.sendPasswordReset(user.id);
+  res.json({ ok: true });
 }));
 
 router.post('/signout', (req, res) => {

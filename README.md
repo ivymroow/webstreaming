@@ -21,6 +21,7 @@ Set these in Railway variables before deploying:
 
 If the homepage says metadata is unavailable, `TMDB_KEY` is missing or invalid in Railway.
 If the browser says CORS origin is not allowed, set `PUBLIC_URL` to your site URL or add that origin to `CORS_ORIGINS`.
+Password reset emails use `PUBLIC_URL` as the Supabase redirect target.
 
 ## Notes
 

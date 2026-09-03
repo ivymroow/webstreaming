@@ -58,6 +58,7 @@ const env = {
   isProduction,
   port: numberFromEnv('PORT', 8080),
   publicDir: path.join(__dirname, '..', '..', 'public'),
+  publicUrl: optionalEnv('PUBLIC_URL') || 'http://localhost:8080',
   corsOrigins,
   rateLimitWindowMs: numberFromEnv('RATE_LIMIT_WINDOW_MS', 60_000),
   rateLimitMax: numberFromEnv('RATE_LIMIT_MAX', 180),

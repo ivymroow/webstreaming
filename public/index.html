@@ -64,14 +64,34 @@
           <label>Password</label>
           <input type="password" id="authPassword" class="modal-input" placeholder="Password" autocomplete="new-password" name="auth-pass">
           <p style="color:#f87171;font-size:13px" id="authError"></p>
-          <p class="hint" style="color:#f59e0b;font-weight:600">you cannot reset your password. do not forget it.</p>
+          <p class="hint" style="color:var(--text-muted)">use a real email on signup if you want password resets.</p>
           <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:12px" onclick="doAuth()">continue</button>
           <p style="text-align:center;margin-top:12px;font-size:13px;color:var(--text-muted)" id="authToggle">don't have an account? <a href="#" onclick="toggleAuthMode();return false" style="color:var(--primary)">sign up</a></p>
         </div>
       </div>
     </div>
+
+    <div id="account-modal" class="modal" style="display:none">
+      <div class="modal-backdrop" onclick="hideAccountSettings()"></div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>account settings</h2>
+          <button class="btn-icon" onclick="hideAccountSettings()">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <label>Email</label>
+          <input type="email" id="accountEmail" class="modal-input" placeholder="you@example.com" autocomplete="email">
+          <p style="color:#f87171;font-size:13px" id="accountError"></p>
+          <p style="color:#4ade80;font-size:13px" id="accountStatus"></p>
+          <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:12px" onclick="saveAccountEmail()">save email</button>
+          <button class="btn btn-secondary" style="width:100%;justify-content:center;margin-top:10px" onclick="sendPasswordReset()">send password reset email</button>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <script src="app.js?v=22"></script>
+  <script src="app.js?v=23"></script>
 </body>
 </html>

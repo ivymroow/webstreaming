@@ -430,11 +430,50 @@ async function doAuth(){
   const username=qs('#authUsername').value.trim(),pass=qs('#authPassword').value;if(!username||!pass)return
   const body={username,password:pass}
   if(authMode==='signup'){const email=qs('#authEmail')?.value.trim();if(email)body.email=email}
-  try{const r=await api('POST',authMode==='signup'?'/api/auth/signup':'/api/auth/signin',body);if(r.ok){state.user=r.user}hideAuth();render()}catch(e){qs('#authError').textContent=cleanAuthError(e.message)}
+  try{const r=await api('POST',authMode==='signup'?'/api/auth/signup':'/api/auth/signin',body);if(r.needsConfirmation){qs('#authError').style.color='#4ade80';qs('#authError').textContent='check your email to finish signup';return}if(r.ok){state.user=r.user}hideAuth();render()}catch(e){qs('#authError').style.color='#f87171';qs('#authError').textContent=cleanAuthError(e.message)}
 }
 function toggleAuthMode(){authMode=authMode==='signin'?'signup':'signin';qs('#authModalTitle').textContent=authMode==='signin'?'sign in':'sign up';const ew=qs('#authEmailWrap');if(ew)ew.style.display=authMode==='signup'?'block':'none';qs('#authToggle').innerHTML=authMode==='signin'?'don\'t have an account? <a href=\"#\" onclick=\"toggleAuthMode();return false\" style=\"color:var(--primary)\">sign up</a>':'already have an account? <a href=\"#\" onclick=\"toggleAuthMode();return false\" style=\"color:var(--primary)\">sign in</a>'}
 function signOut(){fetch((state.backendUrl||'')+'/api/auth/signout',{method:'POST',credentials:'include'}).catch(()=>{});state.user=null;state.view='welcome';history.pushState(null,'','/');render()}
-function showAccountSettings(){alert('account settings are not deployed in this build yet. password reset needs the ws_accounts SQL plus backend reset routes.')}
+function hideAccountSettings(){const m=qs('#account-modal');if(m)m.style.display='none'}
+async function showAccountSettings(){
+  const m=qs('#account-modal'),email=qs('#accountEmail'),err=qs('#accountError'),st=qs('#accountStatus')
+  if(!m)return
+  if(err)err.textContent=''
+  if(st)st.textContent='loading account...'
+  m.style.display='flex'
+  try{
+    const account=await api('GET','/api/auth/account')
+    if(email)email.value=account.email&&!account.needsEmail?account.email:''
+    if(st)st.textContent=account.needsEmail?'add a real email so password reset can work':''
+  }catch(e){
+    if(st)st.textContent=''
+    if(err)err.textContent=cleanAuthError(e.message)
+  }
+}
+async function saveAccountEmail(){
+  const email=qs('#accountEmail')?.value.trim(),err=qs('#accountError'),st=qs('#accountStatus')
+  if(err)err.textContent=''
+  if(st)st.textContent=''
+  if(!email){if(err)err.textContent='enter an email';return}
+  try{
+    const r=await api('POST','/api/auth/account/email',{email})
+    if(r.user)state.user=r.user
+    if(st)st.textContent='email saved'
+    renderUserSection()
+  }catch(e){if(err)err.textContent=cleanAuthError(e.message)}
+}
+async function sendPasswordReset(){
+  const err=qs('#accountError'),st=qs('#accountStatus')
+  if(err)err.textContent=''
+  if(st)st.textContent='sending reset email...'
+  try{
+    await api('POST','/api/auth/password-reset',{})
+    if(st)st.textContent='password reset email sent'
+  }catch(e){
+    if(st)st.textContent=''
+    if(err)err.textContent=cleanAuthError(e.message)
+  }
+}
 
 function PR(){return'<div class="profile"><button class="detail-back" onclick="navigate(\'home\')"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg> Back</button><h1>Profile</h1><div class="profile-search"><input type="text" id="psInput" class="profile-search-input" placeholder="Search movies & shows to add..." autocomplete="off"><div class="profile-search-drop" id="psDrop" style="display:none"></div></div><div class="profile-tabs"><button class="profile-tab active" data-tab="watching">Continue Watching</button><button class="profile-tab" data-tab="watchlist">Watchlist</button><button class="profile-tab" data-tab="watched">Watched</button></div><div class="grid" id="profileGrid"></div><div class="loading-screen" id="pLd"><div class="spinner"></div><p>Loading...</p></div></div>'}
 async function PL(){

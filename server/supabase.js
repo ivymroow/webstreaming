@@ -24,8 +24,10 @@ async function signUp(username, password, email) {
   const userEmail = safeEmail || `${safeUsername}@ws.local`;
   const { data, error } = await sb.auth.signUp({ email: userEmail, password, options: { data: { username: safeUsername } } });
   if (error) throw authError(error.message);
-  if (!data.session) throw authError('Check Supabase dashboard: disable email confirmation');
-  return { user: { id: data.user.id, username: safeUsername, email: data.user.email } };
+  return {
+    user: { id: data.user.id, username: safeUsername, email: data.user.email },
+    needsConfirmation: !data.session,
+  };
 }
 
 async function signIn(username, password) {
@@ -45,6 +47,43 @@ async function getEmailForUsername(username) {
   if (error) return localEmail;
   const user = data?.users?.find(item => item.user_metadata?.username === username);
   return user?.email || localEmail;
+}
+
+async function getAccount(userId) {
+  if (!env.supabaseServiceRoleKey) throw authError('Account settings require SUPABASE_SERVICE_ROLE_KEY');
+  const { data, error } = await admin.auth.admin.getUserById(userId);
+  if (error || !data?.user) throw authError(error?.message || 'User not found');
+  const user = data.user;
+  return {
+    id: user.id,
+    username: user.user_metadata?.username || user.email,
+    email: user.email || '',
+    needsEmail: (user.email || '').endsWith('@ws.local'),
+  };
+}
+
+async function updateEmail(userId, email) {
+  if (!env.supabaseServiceRoleKey) throw authError('Email changes require SUPABASE_SERVICE_ROLE_KEY');
+  const safeEmail = cleanString(email, 320);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(safeEmail)) throw authError('Enter a valid email');
+  const { data, error } = await admin.auth.admin.updateUserById(userId, { email: safeEmail });
+  if (error) throw authError(error.message);
+  const user = data.user;
+  return {
+    id: user.id,
+    username: user.user_metadata?.username || user.email,
+    email: user.email || safeEmail,
+    needsEmail: false,
+  };
+}
+
+async function sendPasswordReset(userId) {
+  const account = await getAccount(userId);
+  if (!account.email || account.needsEmail) throw authError('Set a real email before requesting a password reset');
+  const { error } = await sb.auth.resetPasswordForEmail(account.email, {
+    redirectTo: env.publicUrl,
+  });
+  if (error) throw authError(error.message);
 }
 
 async function saveProgress(userId, item) {
@@ -116,4 +155,4 @@ async function isInWatchlist(userId, itemId) {
   return !!data;
 }
 
-module.exports = { signUp, signIn, getClient, saveProgress, getProgress, listProgress, addToWatchlist, removeFromWatchlist, getWatchlist, isInWatchlist };
+module.exports = { signUp, signIn, getAccount, updateEmail, sendPasswordReset, getClient, saveProgress, getProgress, listProgress, addToWatchlist, removeFromWatchlist, getWatchlist, isInWatchlist };
