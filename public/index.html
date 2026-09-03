@@ -57,6 +57,10 @@
         <div class="modal-body">
           <label>Username</label>
           <input type="text" id="authUsername" class="modal-input" placeholder="Your username" autocomplete="off" name="auth-user">
+          <div id="authEmailWrap" style="display:none">
+            <label>Email</label>
+            <input type="email" id="authEmail" class="modal-input" placeholder="you@example.com" autocomplete="email" name="auth-email">
+          </div>
           <label>Password</label>
           <input type="password" id="authPassword" class="modal-input" placeholder="Password" autocomplete="new-password" name="auth-pass">
           <p style="color:#f87171;font-size:13px" id="authError"></p>
@@ -68,6 +72,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=21"></script>
+  <script src="app.js?v=22"></script>
 </body>
 </html>

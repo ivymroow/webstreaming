@@ -1,5 +1,6 @@
 const { createClient } = require('@supabase/supabase-js');
 const env = require('./config/env');
+const { cleanString, cleanUsername } = require('./utils/sanitize');
 
 // Anon client is only for public auth (signUp/signIn).
 const sb = createClient(env.supabaseUrl, env.supabaseAnonKey);
@@ -18,11 +19,13 @@ function authError(message) {
 }
 
 async function signUp(username, password, email) {
-  const userEmail = email || `${username}@ws.local`;
-  const { data, error } = await sb.auth.signUp({ email: userEmail, password, options: { data: { username } } });
+  const safeUsername = cleanUsername(username);
+  const safeEmail = cleanString(email, 320);
+  const userEmail = safeEmail || `${safeUsername}@ws.local`;
+  const { data, error } = await sb.auth.signUp({ email: userEmail, password, options: { data: { username: safeUsername } } });
   if (error) throw authError(error.message);
   if (!data.session) throw authError('Check Supabase dashboard: disable email confirmation');
-  return { user: { id: data.user.id, username } };
+  return { user: { id: data.user.id, username: safeUsername, email: data.user.email } };
 }
 
 async function signIn(username, password) {

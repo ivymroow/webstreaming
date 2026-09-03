@@ -8,7 +8,7 @@ const { requireBody } = require('../middleware/validation');
 const router = express.Router();
 
 router.post('/signup', requireBody('username'), requireBody('password'), asyncHandler(async (req, res) => {
-  const result = await supabase.signUp(req.body.username, req.body.password);
+  const result = await supabase.signUp(req.body.username, req.body.password, req.body.email);
   sessions.create(res, result.user);
   res.json({ ok: true, user: result.user });
 }));
