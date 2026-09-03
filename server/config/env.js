@@ -9,6 +9,16 @@ function parseList(value) {
     .filter(Boolean);
 }
 
+function originFrom(value) {
+  if (!value) return '';
+  const raw = value.startsWith('http') ? value : `https://${value}`;
+  try {
+    return new URL(raw).origin;
+  } catch {
+    return '';
+  }
+}
+
 function numberFromEnv(name, fallback) {
   const raw = process.env[name];
   if (!raw) return fallback;
@@ -26,7 +36,15 @@ function optionalEnv(name) {
   return process.env[name] || '';
 }
 
-const corsOrigins = parseList(process.env.CORS_ORIGINS);
+const corsOrigins = [
+  ...parseList(process.env.CORS_ORIGINS).map(originFrom),
+  originFrom(process.env.PUBLIC_URL),
+  originFrom(process.env.RAILWAY_PUBLIC_DOMAIN),
+  originFrom(process.env.RAILWAY_STATIC_URL),
+  'https://web-streaming.site',
+  'https://www.web-streaming.site',
+  'https://webtesting.up.railway.app',
+].filter(Boolean);
 const supabaseAnonKey = optionalEnv('SUPABASE_ANON_KEY') || optionalEnv('SUPABASE_KEY');
 const supabaseServiceRoleKey = optionalEnv('SUPABASE_SERVICE_ROLE_KEY');
 

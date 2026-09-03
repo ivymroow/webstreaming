@@ -10,7 +10,14 @@ const env = require('../config/env');
 const router = express.Router();
 const K = env.tmdbKey;
 
-router.get('/status', (req, res) => { res.json({ mode: 'backend' }); });
+router.get('/status', (req, res) => {
+  res.json({
+    mode: 'backend',
+    services: {
+      tmdb: Boolean(K),
+    },
+  });
+});
 
 router.get('/search', requireQuery('q'), asyncHandler(async (req, res) => {
   res.json(await metadata.search(req.query.q.trim()));

@@ -84,7 +84,7 @@ function renderUserSection(){
   const el=qs('#userSection');if(!el)return
   if(state.user){
     const d=state.user.username||state.user.email
-    el.innerHTML='<div class="user-menu" style="position:relative"><button class="user-btn" onclick="toggleUserMenu()">'+esc(d)+' <span style="font-size:10px">▼</span></button><div class="user-drop" id="userDrop" style="display:none;position:absolute;top:100%;right:0;background:var(--surface-elevated);border:1px solid var(--border);border-radius:var(--radius);padding:4px;min-width:120px;z-index:200"><button class="speed-option" onclick="navigate(\'profile\');toggleUserMenu()">profile</button><button class="speed-option" onclick="signOut();toggleUserMenu()">sign out</button></div></div>'
+    el.innerHTML='<div class="user-menu" style="position:relative"><button class="user-btn" onclick="toggleUserMenu()">'+esc(d)+' <span style="font-size:10px">▼</span></button><div class="user-drop" id="userDrop" style="display:none;position:absolute;top:100%;right:0;background:var(--surface-elevated);border:1px solid var(--border);border-radius:var(--radius);padding:4px;min-width:160px;z-index:200"><button class="speed-option" onclick="showAccountSettings();toggleUserMenu()">account settings</button><button class="speed-option" onclick="navigate(\'profile\');toggleUserMenu()">profile</button><button class="speed-option" onclick="signOut();toggleUserMenu()">sign out</button></div></div>'
   }else el.innerHTML='<button class="user-btn" onclick="showAuth()">sign in</button>'
 }
 function toggleUserMenu(){const d=qs('#userDrop');if(d)d.style.display=d.style.display==='block'?'none':'block'}
@@ -123,7 +123,7 @@ async function L(){
     if(state.user){try{cwData=await api('GET','/api/progress/list?status=watching')}catch{}}
     if(cwData.length){qs('#main').insertAdjacentHTML('afterbegin','<div class="section"><h2 class="section-title">continue watching</h2><div class="grid" id="cwGrid"></div></div>');G('cwGrid',cwData.map(i=>({id:i.item_id,title:i.title,poster:i.poster,year:null,type:i.type,progress:i.watched&&i.duration?i.watched/i.duration:0,season:i.season,episode:i.episode,_resume:true})))}
     const[a,b,c]=await Promise.all([api('GET','/api/trending'),api('GET','/api/popular'),api('GET','/api/popular?type=tv')]);qs('#HL').style.display='none'
-    if(!a.length&&!b.length&&!c.length){qs('#main').innerHTML='<div class="loading-screen"><p>no backend connected. try searching.</p></div>';return}
+    if(!a.length&&!b.length&&!c.length){qs('#main').innerHTML='<div class="loading-screen"><p>backend connected, but home metadata is unavailable. check TMDB_KEY in Railway variables or try searching.</p></div>';return}
     window._trending=a
     qs('#main').insertAdjacentHTML('beforeend','<div class="section" style="padding-bottom:4px"><div style="display:flex;gap:8px"><button class="profile-tab active" onclick="filterTrending(\'all\',this)">all</button><button class="profile-tab" onclick="filterTrending(\'movie\',this)">movies</button><button class="profile-tab" onclick="filterTrending(\'tv\',this)">tv shows</button></div></div>')
     qs('#main').insertAdjacentHTML('beforeend','<div class="section"><h2 class="section-title">trending</h2><div class="grid" id="g0"></div></div>')
@@ -425,13 +425,15 @@ function E(m){return'<div class="error-view"><h2>Something went wrong</h2><p>'+e
 function showAuth(){qs('#auth-modal').style.display='flex'}
 function hideAuth(){qs('#auth-modal').style.display='none'}
 let authMode='signin'
+function cleanAuthError(message){return message==='CORS origin not allowed'?'this site is not allowed by the backend yet. add this domain to CORS_ORIGINS or PUBLIC_URL in Railway.':message}
 async function doAuth(){
   const username=qs('#authUsername').value.trim(),pass=qs('#authPassword').value;if(!username||!pass)return
   const body={username,password:pass}
-  try{const r=await api('POST',authMode==='signup'?'/api/auth/signup':'/api/auth/signin',body);if(r.ok){state.user=r.user}hideAuth();render()}catch(e){qs('#authError').textContent=e.message}
+  try{const r=await api('POST',authMode==='signup'?'/api/auth/signup':'/api/auth/signin',body);if(r.ok){state.user=r.user}hideAuth();render()}catch(e){qs('#authError').textContent=cleanAuthError(e.message)}
 }
 function toggleAuthMode(){authMode=authMode==='signin'?'signup':'signin';qs('#authModalTitle').textContent=authMode==='signin'?'sign in':'sign up';qs('#authToggle').innerHTML=authMode==='signin'?'don\'t have an account? <a href=\"#\" onclick=\"toggleAuthMode();return false\" style=\"color:var(--primary)\">sign up</a>':'already have an account? <a href=\"#\" onclick=\"toggleAuthMode();return false\" style=\"color:var(--primary)\">sign in</a>'}
 function signOut(){fetch((state.backendUrl||'')+'/api/auth/signout',{method:'POST',credentials:'include'}).catch(()=>{});state.user=null;state.view='welcome';history.pushState(null,'','/');render()}
+function showAccountSettings(){alert('account settings are not deployed in this build yet. password reset needs the ws_accounts SQL plus backend reset routes.')}
 
 function PR(){return'<div class="profile"><button class="detail-back" onclick="navigate(\'home\')"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg> Back</button><h1>Profile</h1><div class="profile-search"><input type="text" id="psInput" class="profile-search-input" placeholder="Search movies & shows to add..." autocomplete="off"><div class="profile-search-drop" id="psDrop" style="display:none"></div></div><div class="profile-tabs"><button class="profile-tab active" data-tab="watching">Continue Watching</button><button class="profile-tab" data-tab="watchlist">Watchlist</button><button class="profile-tab" data-tab="watched">Watched</button></div><div class="grid" id="profileGrid"></div><div class="loading-screen" id="pLd"><div class="spinner"></div><p>Loading...</p></div></div>'}
 async function PL(){

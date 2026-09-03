@@ -17,6 +17,10 @@ Set these in Railway variables before deploying:
 - `TMDB_KEY`
 - `SESSION_SECRET`
 - `CORS_ORIGINS`
+- `PUBLIC_URL`
+
+If the homepage says metadata is unavailable, `TMDB_KEY` is missing or invalid in Railway.
+If the browser says CORS origin is not allowed, set `PUBLIC_URL` to your site URL or add that origin to `CORS_ORIGINS`.
 
 ## Notes
 
