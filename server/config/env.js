@@ -47,6 +47,11 @@ const corsOrigins = [
 ].filter(Boolean);
 const supabaseAnonKey = optionalEnv('SUPABASE_ANON_KEY') || optionalEnv('SUPABASE_KEY');
 const supabaseServiceRoleKey = optionalEnv('SUPABASE_SERVICE_ROLE_KEY');
+const supabaseAuthKey = supabaseAnonKey || supabaseServiceRoleKey;
+
+if (!supabaseAuthKey && isProduction) {
+  throw new Error('Missing required environment variable: SUPABASE_ANON_KEY or SUPABASE_SERVICE_ROLE_KEY');
+}
 
 const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
@@ -63,9 +68,9 @@ const env = {
   downloadRetentionMs: numberFromEnv('DOWNLOAD_RETENTION_MS', 15 * 60_000),
   ffmpegTimeoutMs: numberFromEnv('FFMPEG_TIMEOUT_MS', 30_000),
   supabaseUrl: requireEnv('SUPABASE_URL') || 'http://localhost',
-  supabaseAnonKey: supabaseAnonKey || 'development-placeholder',
+  supabaseAnonKey: supabaseAuthKey || 'development-placeholder',
   supabaseServiceRoleKey,
-  supabaseKey: supabaseServiceRoleKey || supabaseAnonKey || 'development-placeholder',
+  supabaseKey: supabaseServiceRoleKey || supabaseAuthKey || 'development-placeholder',
   tmdbKey: requireEnv('TMDB_KEY') || '',
   sessionSecret: requireEnv('SESSION_SECRET') || 'ws-local-dev-secret',
 };

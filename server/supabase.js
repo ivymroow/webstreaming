@@ -29,10 +29,22 @@ async function signUp(username, password, email) {
 }
 
 async function signIn(username, password) {
-  const userEmail = `${username}@ws.local`;
+  const safeUsername = cleanUsername(username);
+  const userEmail = await getEmailForUsername(safeUsername);
   const { data, error } = await sb.auth.signInWithPassword({ email: userEmail, password });
   if (error) throw authError(error.message);
-  return { user: { id: data.user.id, username: data.user.user_metadata?.username || username } };
+  return { user: { id: data.user.id, username: data.user.user_metadata?.username || safeUsername, email: data.user.email } };
+}
+
+async function getEmailForUsername(username) {
+  if (username.includes('@')) return username;
+  const localEmail = `${username}@ws.local`;
+  if (!env.supabaseServiceRoleKey) return localEmail;
+
+  const { data, error } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  if (error) return localEmail;
+  const user = data?.users?.find(item => item.user_metadata?.username === username);
+  return user?.email || localEmail;
 }
 
 async function saveProgress(userId, item) {

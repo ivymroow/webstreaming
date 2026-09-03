@@ -15,6 +15,8 @@ router.get('/status', (req, res) => {
     mode: 'backend',
     services: {
       tmdb: Boolean(K),
+      supabase: Boolean(env.supabaseAnonKey && env.supabaseUrl),
+      supabaseAdmin: Boolean(env.supabaseServiceRoleKey),
     },
   });
 });
