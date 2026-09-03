@@ -17,15 +17,18 @@ function numberFromEnv(name, fallback) {
 }
 
 function requireEnv(name) {
-  return process.env[name] || '';
+  const value = process.env[name] || '';
+  if (!value && isProduction) throw new Error(`Missing required environment variable: ${name}`);
+  return value;
 }
 
 function optionalEnv(name) {
   return process.env[name] || '';
 }
 
-const supabaseKey = optionalEnv('SUPABASE_SERVICE_ROLE_KEY') || optionalEnv('SUPABASE_KEY');
 const corsOrigins = parseList(process.env.CORS_ORIGINS);
+const supabaseAnonKey = optionalEnv('SUPABASE_ANON_KEY') || optionalEnv('SUPABASE_KEY');
+const supabaseServiceRoleKey = optionalEnv('SUPABASE_SERVICE_ROLE_KEY');
 
 const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
@@ -42,7 +45,11 @@ const env = {
   downloadRetentionMs: numberFromEnv('DOWNLOAD_RETENTION_MS', 15 * 60_000),
   ffmpegTimeoutMs: numberFromEnv('FFMPEG_TIMEOUT_MS', 30_000),
   supabaseUrl: requireEnv('SUPABASE_URL') || 'http://localhost',
-  supabaseKey: supabaseKey || 'development-placeholder',
+  supabaseAnonKey: supabaseAnonKey || 'development-placeholder',
+  supabaseServiceRoleKey,
+  supabaseKey: supabaseServiceRoleKey || supabaseAnonKey || 'development-placeholder',
+  tmdbKey: requireEnv('TMDB_KEY') || '',
+  sessionSecret: requireEnv('SESSION_SECRET') || 'ws-local-dev-secret',
 };
 
 module.exports = env;

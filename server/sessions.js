@@ -1,13 +1,11 @@
 const crypto = require('crypto');
+const env = require('./config/env');
 
 const COOKIE_NAME = 'ws_sid';
 const SESSION_TTL = 10 * 365 * 24 * 60 * 60; // 10 years, in seconds
 
 function secret() {
-  return process.env.SESSION_SECRET
-    || process.env.SUPABASE_SERVICE_ROLE_KEY
-    || process.env.SUPABASE_KEY
-    || 'ws-local-dev-secret';
+  return env.sessionSecret;
 }
 
 function b64url(buf) {

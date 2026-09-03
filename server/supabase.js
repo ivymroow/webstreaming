@@ -1,14 +1,11 @@
 const { createClient } = require('@supabase/supabase-js');
-
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://fjsqdiungqarlrnusddr.supabase.co';
-const ANON_KEY = process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqc3FkaXVuZ3FhcmxybnVzZGRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0OTQ5MjAsImV4cCI6MjA5ODA3MDkyMH0.QIWrPp8KflyvFHUjeWVbO0dxKxns2-WfOeH6UQeqe84';
-const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const env = require('./config/env');
 
 // Anon client is only for public auth (signUp/signIn).
-const sb = createClient(SUPABASE_URL, ANON_KEY);
+const sb = createClient(env.supabaseUrl, env.supabaseAnonKey);
 
 // Service-role client bypasses RLS and never needs a user token. Falls back to anon.
-const admin = SERVICE_KEY ? createClient(SUPABASE_URL, SERVICE_KEY) : sb;
+const admin = env.supabaseServiceRoleKey ? createClient(env.supabaseUrl, env.supabaseServiceRoleKey) : sb;
 
 function getClient() {
   return admin;

@@ -15,7 +15,13 @@ services:
         sync: false
       - key: SUPABASE_URL
         sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: TMDB_KEY
+        sync: false
+      - key: SESSION_SECRET
         sync: false
       - key: MAX_ACTIVE_STREAMS
         value: 8

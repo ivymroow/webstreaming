@@ -1,6 +1,7 @@
 const axios = require('axios');
+const env = require('./config/env');
 
-const TMDB_KEY = process.env.TMDB_KEY || '64caa5119a1abe79e6a57a9069c03df5';
+const TMDB_KEY = env.tmdbKey;
 const TMDB_IMG = 'https://image.tmdb.org/t/p/w500';
 const http = axios.create({ timeout: 20000, headers: { 'User-Agent': 'web-streaming/1.0' } });
 

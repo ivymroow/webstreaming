@@ -5,9 +5,10 @@ const anilist = require('../anilist');
 const { asyncHandler } = require('../middleware/errors');
 const { requireQuery } = require('../middleware/validation');
 const axios = require('axios');
+const env = require('../config/env');
 
 const router = express.Router();
-const K = process.env.TMDB_KEY || '64caa5119a1abe79e6a57a9069c03df5';
+const K = env.tmdbKey;
 
 router.get('/status', (req, res) => { res.json({ mode: 'backend' }); });
 

@@ -12,9 +12,14 @@ const progressRoutes = require('./routes/progress');
 const watchlistRoutes = require('./routes/watchlist');
 
 function createCorsOptions() {
+  const devOrigins = ['http://localhost:3000', 'http://localhost:8080', 'http://127.0.0.1:3000', 'http://127.0.0.1:8080'];
+  const allowedOrigins = env.isProduction ? env.corsOrigins : [...env.corsOrigins, ...devOrigins];
+
   return {
     origin(origin, callback) {
-      callback(null, true);
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      callback(new Error('CORS origin not allowed'));
     },
     credentials: true,
   };
