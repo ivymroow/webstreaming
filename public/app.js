@@ -841,7 +841,7 @@ async function doAuth(){
       return;
     }
     if(!r.ok||!r.user)throw new Error('sign in failed')
-    state.user=await api('GET','/api/auth/user')
+    state.user=r.user
     qs('#auth2faWrap').style.display='none';
     qs('#auth2fa').value='';
     if(qs('#auth2faLabel'))qs('#auth2faLabel').textContent='2FA Code';
