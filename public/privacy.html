@@ -1,80 +1,73 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>privacy policy - web-streaming-addon</title>
-  <style>
-    body {
-      margin: 0;
-      background: #0b0b10;
-      color: #f4f4f5;
-      font-family: Arial, sans-serif;
-      line-height: 1.6;
-    }
-
-    main {
-      max-width: 760px;
-      margin: 0 auto;
-      padding: 40px 20px;
-    }
-
-    h1, h2 {
-      line-height: 1.2;
-    }
-
-    h1 {
-      font-size: 30px;
-      margin: 0 0 8px;
-    }
-
-    h2 {
-      font-size: 18px;
-      margin: 28px 0 8px;
-    }
-
-    p, li {
-      color: #d4d4d8;
-      font-size: 15px;
-    }
-
-    a {
-      color: #a78bfa;
-    }
-
-    .updated {
-      color: #a1a1aa;
-      margin-top: 0;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>privacy - webstreaming</title>
+<meta name="theme-color" content="#6c5ce7">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/variables.css?v=3">
+<link rel="stylesheet" href="assets/css/layout.css?v=3">
+<link rel="stylesheet" href="assets/css/components.css?v=3">
+<link rel="stylesheet" href="assets/css/player.css?v=3">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='12' fill='%236c5ce7'/%3E%3Ctext x='50' y='70' text-anchor='middle' font-family='monospace' font-weight='900' font-size='44' fill='%23000'%3EWS%3C/text%3E%3C/svg%3E">
 </head>
 <body>
-  <main>
-    <h1>privacy policy</h1>
-    <p class="updated">last updated: september 4, 2026</p>
+  <div id="app">
+    <header id="mainHeader">
+      <div class="header-left">
+        <a href="/" class="logo">webstreaming</a>
+      </div>
+      <div class="header-center"></div>
+      <div class="header-right"></div>
+    </header>
 
-    <p>web-streaming-addon is a browser extension that adds a download panel on web-streaming.site for media streams detected in the current browser tab.</p>
+    <main id="main">
+      <div style="max-width:800px;margin:0 auto;padding:32px">
+        <a class="detail-back" href="/">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+          back
+        </a>
 
-    <h2>data collection</h2>
-    <p>the extension does not collect, sell, transfer, or share personal information. it does not use analytics, ads, tracking pixels, or external telemetry.</p>
+        <div class="ns">
+          <h2>privacy policy</h2>
+          <p style="color:var(--text-muted);font-size:12px;margin-top:4px">last updated: september 4, 2026</p>
+          <p style="color:var(--primary);font-size:14px;line-height:1.8">web-streaming-addon adds a download panel on web-streaming.site for media streams detected in the current browser tab.</p>
+        </div>
 
-    <h2>local processing</h2>
-    <p>the extension processes video stream urls and page information locally in the user's browser so it can show downloadable media options and start downloads requested by the user.</p>
+        <div class="ns">
+          <h2>data collection</h2>
+          <p style="color:var(--primary);font-size:14px;line-height:1.8">the extension does not collect, sell, transfer, or share personal information. it does not use analytics, ads, tracking pixels, or external telemetry.</p>
+        </div>
 
-    <h2>storage</h2>
-    <p>the extension may store temporary extension settings or detected media information locally in chrome extension storage. this data stays on the user's device and is used only for the extension's download functionality.</p>
+        <div class="ns">
+          <h2>local processing</h2>
+          <p style="color:var(--primary);font-size:14px;line-height:1.8">video stream urls and page information are processed locally in the browser so the extension can show downloadable media options and start downloads requested by the user.</p>
+        </div>
 
-    <h2>remote code</h2>
-    <p>the extension includes its javascript code inside the extension package. it does not load or execute remote code.</p>
+        <div class="ns">
+          <h2>storage</h2>
+          <p style="color:var(--primary);font-size:14px;line-height:1.8">the extension may store temporary settings or detected media information in chrome extension storage. this data stays on the user's device and is used only for download functionality.</p>
+        </div>
 
-    <h2>third parties</h2>
-    <p>the extension does not send user data to the developer or to third-party servers. media urls may come from the websites and embedded players the user chooses to open.</p>
+        <div class="ns">
+          <h2>remote code</h2>
+          <p style="color:var(--primary);font-size:14px;line-height:1.8">the extension includes its javascript code inside the extension package. it does not load or execute remote code.</p>
+        </div>
 
-    <h2>removing data</h2>
-    <p>users can remove locally stored extension data by removing the extension from chrome or clearing extension site data in browser settings.</p>
+        <div class="ns">
+          <h2>third parties</h2>
+          <p style="color:var(--primary);font-size:14px;line-height:1.8">the extension does not send user data to the developer or to third-party servers. media urls may come from websites and embedded players opened by the user.</p>
+        </div>
 
-    <h2>contact</h2>
-    <p>for privacy questions, contact the site owner through the project's support channel.</p>
-  </main>
+        <div class="ns">
+          <h2>removing data</h2>
+          <p style="color:var(--primary);font-size:14px;line-height:1.8">users can remove locally stored extension data by removing the extension from chrome or clearing extension site data in browser settings.</p>
+        </div>
+      </div>
+    </main>
+  </div>
 </body>
 </html>
