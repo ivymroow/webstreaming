@@ -818,7 +818,7 @@ async function doAuth(){
   const err=qs('#authError')
   if(err){err.style.color='#f87171';err.textContent=''}
   const username=qs('#authUsername').value.trim(),pass=qs('#authPassword').value
-  if(!username){if(err)err.textContent='enter your username';return}
+  if(!username){if(err)err.textContent=authMode==='signin'?'enter your email':'enter your username';return}
   if(!pass){if(err)err.textContent='enter your password';return}
   const body={username,password:pass}
   if(authMode==='signup'){const email=qs('#authEmail')?.value.trim();if(email)body.email=email}
@@ -840,10 +840,13 @@ async function doAuth(){
       qs('#auth2fa').focus();
       return;
     }
-    if(r.ok){state.user=r.user}
+    if(!r.ok||!r.user)throw new Error('sign in failed')
+    state.user=await api('GET','/api/auth/user')
     qs('#auth2faWrap').style.display='none';
     qs('#auth2fa').value='';
     if(qs('#auth2faLabel'))qs('#auth2faLabel').textContent='2FA Code';
+    state.view='home'
+    history.replaceState(null,'','/')
     hideAuth();render()
   }catch(e){
     console.error('Auth failed:',e)
@@ -851,7 +854,7 @@ async function doAuth(){
     qs('#authError').textContent=cleanAuthError(e.message||'sign in failed')
   }
 }
-function toggleAuthMode(){authMode=authMode==='signin'?'signup':'signin';qs('#authModalTitle').textContent=authMode==='signin'?'sign in':'sign up';const ew=qs('#authEmailWrap');if(ew)ew.style.display=authMode==='signup'?'block':'none';if(qs('#auth2faWrap'))qs('#auth2faWrap').style.display='none';if(qs('#auth2fa'))qs('#auth2fa').value='';qs('#authToggle').innerHTML=authMode==='signin'?'don\'t have an account? <a href=\"#\" onclick=\"toggleAuthMode();return false\" style=\"color:var(--primary)\">sign up</a>':'already have an account? <a href=\"#\" onclick=\"toggleAuthMode();return false\" style=\"color:var(--primary)\">sign in</a>'}
+function toggleAuthMode(){authMode=authMode==='signin'?'signup':'signin';const signingIn=authMode==='signin',identity=qs('#authUsername'),identityLabel=qs('#authIdentityLabel');qs('#authModalTitle').textContent=signingIn?'sign in':'sign up';if(identityLabel)identityLabel.textContent=signingIn?'Email':'Username';if(identity){identity.type=signingIn?'email':'text';identity.placeholder=signingIn?'you@example.com':'Your username';identity.autocomplete=signingIn?'email':'username'}const ew=qs('#authEmailWrap');if(ew)ew.style.display=signingIn?'none':'block';if(qs('#auth2faWrap'))qs('#auth2faWrap').style.display='none';if(qs('#auth2fa'))qs('#auth2fa').value='';qs('#authToggle').innerHTML=signingIn?'don\'t have an account? <a href=\"#\" onclick=\"toggleAuthMode();return false\" style=\"color:var(--primary)\">sign up</a>':'already have an account? <a href=\"#\" onclick=\"toggleAuthMode();return false\" style=\"color:var(--primary)\">sign in</a>'}
 function signOut(){fetch((state.backendUrl||'')+'/api/auth/signout',{method:'POST',credentials:'include'}).catch(()=>{});state.user=null;state.view='welcome';history.pushState(null,'','/');render()}
 function hideAccountSettings(){const m=qs('#account-modal');if(m)m.style.display='none'}
 async function showAccountSettings(){

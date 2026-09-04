@@ -55,8 +55,8 @@
           </button>
         </div>
         <div class="modal-body">
-          <label>Username</label>
-          <input type="text" id="authUsername" class="modal-input" placeholder="Your username" autocomplete="off" name="auth-user">
+          <label id="authIdentityLabel">Email</label>
+          <input type="email" id="authUsername" class="modal-input" placeholder="you@example.com" autocomplete="email" name="auth-user">
           <div id="authEmailWrap" style="display:none">
             <label>Email</label>
             <input type="email" id="authEmail" class="modal-input" placeholder="you@example.com" autocomplete="email" name="auth-email">
@@ -159,7 +159,7 @@
     </div>
   </div>
 
-  <script src="app.js?v=34"></script>
+  <script src="app.js?v=35"></script>
 </body>
 </html>
 
