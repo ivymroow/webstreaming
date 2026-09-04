@@ -18,6 +18,26 @@ function authError(message) {
   return err;
 }
 
+function userPayload(user, fallbackUsername) {
+  return {
+    id: user.id,
+    username: user.user_metadata?.username || fallbackUsername || user.email,
+    email: user.email,
+  };
+}
+
+function passwordResetRedirectUrl() {
+  try {
+    const url = new URL(env.publicUrl);
+    url.pathname = '/reset-password';
+    url.search = '';
+    url.hash = '';
+    return url.toString();
+  } catch {
+    return 'http://localhost:8080/reset-password';
+  }
+}
+
 async function signUp(username, password, email) {
   const safeUsername = cleanUsername(username);
   const safeEmail = cleanString(email, 320);
@@ -35,7 +55,7 @@ async function signIn(username, password) {
   const userEmail = await getEmailForUsername(safeUsername);
   const { data, error } = await sb.auth.signInWithPassword({ email: userEmail, password });
   if (error) throw authError(error.message);
-  return { user: { id: data.user.id, username: data.user.user_metadata?.username || safeUsername, email: data.user.email } };
+  return { user: userPayload(data.user, safeUsername) };
 }
 
 async function getEmailForUsername(username) {
@@ -81,9 +101,44 @@ async function sendPasswordReset(userId) {
   const account = await getAccount(userId);
   if (!account.email || account.needsEmail) throw authError('Set a real email before requesting a password reset');
   const { error } = await sb.auth.resetPasswordForEmail(account.email, {
-    redirectTo: env.publicUrl,
+    redirectTo: passwordResetRedirectUrl(),
   });
   if (error) throw authError(error.message);
+}
+
+async function updatePasswordFromReset({ accessToken, refreshToken, code, password }) {
+  const safePassword = cleanString(password, 256);
+  if (safePassword.length < 6) throw authError('Password must be at least 6 characters');
+
+  const recoveryClient = createClient(env.supabaseUrl, env.supabaseAnonKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
+    },
+  });
+
+  let sessionUser = null;
+  if (code) {
+    const { data, error } = await recoveryClient.auth.exchangeCodeForSession(cleanString(code, 2048));
+    if (error) throw authError(error.message);
+    sessionUser = data?.user || null;
+  } else if (accessToken && refreshToken) {
+    const { data, error } = await recoveryClient.auth.setSession({
+      access_token: cleanString(accessToken, 4096),
+      refresh_token: cleanString(refreshToken, 4096),
+    });
+    if (error) throw authError(error.message);
+    sessionUser = data?.user || null;
+  } else {
+    throw authError('Password reset link is missing recovery tokens');
+  }
+
+  const { data, error } = await recoveryClient.auth.updateUser({ password: safePassword });
+  if (error) throw authError(error.message);
+  const user = data?.user || sessionUser;
+  if (!user) throw authError('Password reset session could not be loaded');
+  return { user: userPayload(user) };
 }
 
 async function saveProgress(userId, item) {
@@ -155,4 +210,4 @@ async function isInWatchlist(userId, itemId) {
   return !!data;
 }
 
-module.exports = { signUp, signIn, getAccount, updateEmail, sendPasswordReset, getClient, saveProgress, getProgress, listProgress, addToWatchlist, removeFromWatchlist, getWatchlist, isInWatchlist };
+module.exports = { signUp, signIn, getAccount, updateEmail, sendPasswordReset, updatePasswordFromReset, getClient, saveProgress, getProgress, listProgress, addToWatchlist, removeFromWatchlist, getWatchlist, isInWatchlist };

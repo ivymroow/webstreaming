@@ -1,6 +1,7 @@
 let state={view:'welcome',query:'',player:null,mode:'standalone',prevState:null,user:null,_title:'',_year:'',_poster:'',_savedSeason:null,_savedEpisode:null,_sources:null}
 let backendUrl=localStorage.getItem('um_backend')||''
 let token='',refreshToken=''
+let resetParams=null
 
 async function tryRefreshSession(){
   return false
@@ -475,6 +476,57 @@ async function sendPasswordReset(){
   }
 }
 
+function readPasswordResetParams(){
+  const query=new URLSearchParams(window.location.search)
+  const hashText=window.location.hash.startsWith('#')?window.location.hash.slice(1):''
+  const hash=new URLSearchParams(hashText)
+  const type=hash.get('type')||query.get('type')
+  const code=query.get('code')||hash.get('code')
+  const accessToken=hash.get('access_token')||query.get('access_token')
+  const refreshTokenValue=hash.get('refresh_token')||query.get('refresh_token')
+  const isResetPath=window.location.pathname==='/reset-password'
+  if(type==='recovery'||isResetPath||code||accessToken)return{code,accessToken,refreshToken:refreshTokenValue}
+  return null
+}
+function showPasswordReset(params){
+  resetParams=params
+  const m=qs('#reset-modal'),err=qs('#resetError'),st=qs('#resetStatus')
+  if(err)err.textContent=''
+  if(st)st.textContent=''
+  const p=qs('#resetPassword'),c=qs('#resetPasswordConfirm')
+  if(p)p.value=''
+  if(c)c.value=''
+  if(m)m.style.display='flex'
+  setTimeout(()=>p?.focus(),50)
+}
+function hidePasswordReset(){
+  const m=qs('#reset-modal')
+  if(m)m.style.display='none'
+}
+async function submitPasswordReset(){
+  const password=qs('#resetPassword')?.value||''
+  const confirm=qs('#resetPasswordConfirm')?.value||''
+  const err=qs('#resetError'),st=qs('#resetStatus')
+  if(err)err.textContent=''
+  if(st)st.textContent=''
+  if(!resetParams){if(err)err.textContent='open the newest reset email link again';return}
+  if(password.length<6){if(err)err.textContent='password must be at least 6 characters';return}
+  if(password!==confirm){if(err)err.textContent='passwords do not match';return}
+  if(st)st.textContent='saving new password...'
+  try{
+    const r=await api('POST','/api/auth/password/update',{...resetParams,password})
+    if(r.user)state.user=r.user
+    resetParams=null
+    window.history.replaceState(null,'','/')
+    hidePasswordReset()
+    state.view='home'
+    render()
+  }catch(e){
+    if(st)st.textContent=''
+    if(err)err.textContent=cleanAuthError(e.message||'reset link expired or invalid')
+  }
+}
+
 function PR(){return'<div class="profile"><button class="detail-back" onclick="navigate(\'home\')"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg> Back</button><h1>Profile</h1><div class="profile-search"><input type="text" id="psInput" class="profile-search-input" placeholder="Search movies & shows to add..." autocomplete="off"><div class="profile-search-drop" id="psDrop" style="display:none"></div></div><div class="profile-tabs"><button class="profile-tab active" data-tab="watching">Continue Watching</button><button class="profile-tab" data-tab="watchlist">Watchlist</button><button class="profile-tab" data-tab="watched">Watched</button></div><div class="grid" id="profileGrid"></div><div class="loading-screen" id="pLd"><div class="spinner"></div><p>Loading...</p></div></div>'}
 async function PL(){
   if(!state.user){qs('#profileGrid').innerHTML='<p style="color:var(--text-muted);padding:40px;text-align:center">Sign in to manage your watchlist.</p>';qs('#pLd').style.display='none';return}
@@ -497,7 +549,7 @@ async function addWatchlistFromProfile(id,title,poster,type){
 function restoreFromHash(){const hash=window.location.hash.slice(1);if(!hash||hash==='/'||hash==='')return;if(hash==='profile'){state.view='profile';return};if(hash==='notice'){state.view='notice';return};const params=new URLSearchParams(hash);if(params.has('q')){state.query=params.get('q');state.view='search'}else if(params.has('id')){state.view='detail';const type=params.get('type')||(params.has('s')?'tv':'movie');const se=parseInt(params.get('s')),ep=parseInt(params.get('e'));if(!isNaN(se)&&!isNaN(ep)&&type==='tv'){selectedSeason=se;selectedEpisode=ep};state.data={id:params.get('id'),type,title:params.get('t')||'',year:params.get('y')||'',season:type==='tv'?(isNaN(se)?null:se):null,episode:type==='tv'?(isNaN(ep)?null:ep):null,_playHash:params.get('hash')||null}}else state.view='home'}
 
 async function init(){
-  try{await detect();if(state.mode==='backend'){try{const u=await api('GET','/api/auth/user');state.user=u}catch{}};if(state.mode==='standalone'&&!navigator.onLine){qs('#app').innerHTML='<div class="loading-screen"><h2>No backend</h2><p>Connect to the internet or configure a backend URL.</p></div>';return};const p=window.location.pathname;const h=window.location.hash;if(h&&h.length>2){restoreFromHash();render()}else if(p==='/'){state.view=state.user?'home':'welcome';render()}else if(p==='/profile'){state.view='profile';render()}else if(p==='/notice'){state.view='notice';render()}else if(p==='/socials'){state.view='socials';render()}else{state.view='welcome';render()}return}catch(e){console.error('Init:',e);qs('#main').innerHTML='<div class="error-view"><h2>Failed to load</h2><p>'+esc(e.message||'Unknown error')+'</p><button class="btn btn-primary" onclick="location.reload()">Retry</button></div>'}
+  try{await detect();if(state.mode==='backend'){try{const u=await api('GET','/api/auth/user');state.user=u}catch{}};if(state.mode==='standalone'&&!navigator.onLine){qs('#app').innerHTML='<div class="loading-screen"><h2>No backend</h2><p>Connect to the internet or configure a backend URL.</p></div>';return};const recovery=readPasswordResetParams();if(recovery){state.view='welcome';render();showPasswordReset(recovery);return};const p=window.location.pathname;const h=window.location.hash;if(h&&h.length>2){restoreFromHash();render()}else if(p==='/'){state.view=state.user?'home':'welcome';render()}else if(p==='/profile'){state.view='profile';render()}else if(p==='/notice'){state.view='notice';render()}else if(p==='/socials'){state.view='socials';render()}else{state.view='welcome';render()}return}catch(e){console.error('Init:',e);qs('#main').innerHTML='<div class="error-view"><h2>Failed to load</h2><p>'+esc(e.message||'Unknown error')+'</p><button class="btn btn-primary" onclick="location.reload()">Retry</button></div>'}
 }
 
 // Scroll effect on header

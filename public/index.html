@@ -90,8 +90,26 @@
         </div>
       </div>
     </div>
+
+    <div id="reset-modal" class="modal" style="display:none">
+      <div class="modal-backdrop"></div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>reset password</h2>
+        </div>
+        <div class="modal-body">
+          <label>New password</label>
+          <input type="password" id="resetPassword" class="modal-input" placeholder="New password" autocomplete="new-password">
+          <label>Confirm password</label>
+          <input type="password" id="resetPasswordConfirm" class="modal-input" placeholder="Confirm password" autocomplete="new-password">
+          <p style="color:#f87171;font-size:13px" id="resetError"></p>
+          <p style="color:#4ade80;font-size:13px" id="resetStatus"></p>
+          <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:12px" onclick="submitPasswordReset()">save new password</button>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <script src="app.js?v=23"></script>
+  <script src="app.js?v=24"></script>
 </body>
 </html>

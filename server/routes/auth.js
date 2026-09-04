@@ -46,6 +46,12 @@ router.post('/password-reset', asyncHandler(async (req, res) => {
   res.json({ ok: true });
 }));
 
+router.post('/password/update', requireBody('password'), asyncHandler(async (req, res) => {
+  const result = await supabase.updatePasswordFromReset(req.body);
+  sessions.create(res, result.user);
+  res.json({ ok: true, user: result.user });
+}));
+
 router.post('/signout', (req, res) => {
   sessions.clear(res);
   res.json({ ok: true });
