@@ -60,7 +60,43 @@ async function signUp(username, password, email) {
   const usernameKey = safeUsername.toLowerCase();
   const safeEmail = cleanString(email, 320);
   const userEmail = safeEmail || `${usernameKey}@ws.local`;
-  const { data, error } = await sb.auth.signUp({ email: userEmail, password, options: { data: displayNameMetadata(safeUsername) } });
+  const metadata = displayNameMetadata(safeUsername);
+  let data;
+  let error;
+  let needsConfirmation = false;
+  if (safeEmail && env.supabaseServiceRoleKey && env.resendApiKey) {
+    const generated = await admin.auth.admin.generateLink({
+      type: 'signup',
+      email: userEmail,
+      password,
+      options: { data: metadata, redirectTo: env.publicUrl },
+    });
+    data = generated.data;
+    error = generated.error;
+    if (!error) {
+      try {
+        await sendSignupConfirmation(userEmail, generated.data.properties.action_link);
+      } catch (sendError) {
+        if (generated.data?.user?.id) await admin.auth.admin.deleteUser(generated.data.user.id).catch(() => {});
+        throw sendError;
+      }
+      needsConfirmation = true;
+    }
+  } else if (!safeEmail && env.supabaseServiceRoleKey) {
+    const created = await admin.auth.admin.createUser({
+      email: userEmail,
+      password,
+      email_confirm: true,
+      user_metadata: metadata,
+    });
+    data = created.data;
+    error = created.error;
+  } else {
+    const signedUp = await sb.auth.signUp({ email: userEmail, password, options: { data: metadata } });
+    data = signedUp.data;
+    error = signedUp.error;
+    needsConfirmation = !signedUp.data?.session;
+  }
   if (error) throw authError(error.message);
   if (env.supabaseServiceRoleKey && data?.user?.id) {
     updateDisplayName(data.user.id, safeUsername, data.user.user_metadata).catch(() => {});
@@ -74,7 +110,7 @@ async function signUp(username, password, email) {
   }
   return {
     user: { id: data.user.id, username: safeUsername, email: data.user.email },
-    needsConfirmation: !data.session,
+    needsConfirmation,
   };
 }
 
@@ -211,6 +247,19 @@ async function sendPasswordReset(userId) {
 async function sendPasswordResetToEmail(email) {
   const safeEmail = cleanString(email, 320).toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(safeEmail)) throw authError('Enter a valid email');
+  if (env.supabaseServiceRoleKey && env.resendApiKey) {
+    const { data, error } = await admin.auth.admin.generateLink({
+      type: 'recovery',
+      email: safeEmail,
+      options: { redirectTo: passwordResetRedirectUrl() },
+    });
+    if (error) {
+      if (/not found|does not exist/i.test(error.message || '')) return;
+      throw authError(error.message);
+    }
+    await sendPasswordRecovery(safeEmail, data.properties.action_link);
+    return;
+  }
   const { error } = await sb.auth.resetPasswordForEmail(safeEmail, {
     redirectTo: passwordResetRedirectUrl(),
   });
@@ -450,6 +499,65 @@ async function sendTransactionalEmail(message) {
   return result;
 }
 
+function escapeEmailHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function emailCard({ heading, body, code, actionLabel, actionUrl, footer }) {
+  const action = actionUrl
+    ? `<a href="${escapeEmailHtml(actionUrl)}" style="display:inline-block;background:#9747ff;color:#ffffff;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:8px;margin-top:8px">${escapeEmailHtml(actionLabel)}</a>`
+    : '';
+  const codeBlock = code
+    ? `<div style="font-size:38px;font-weight:800;letter-spacing:10px;color:#9747ff;padding:20px 0">${escapeEmailHtml(code)}</div>`
+    : '';
+  return `<div style="background:#f4f4f5;padding:24px 12px;font-family:Arial,sans-serif">
+    <div style="max-width:500px;margin:0 auto;background:#08070c;color:#ffffff;border-radius:14px;padding:32px 26px;box-sizing:border-box">
+      <div style="color:#9747ff;font-size:23px;font-weight:800;margin-bottom:24px">web-streaming</div>
+      <h2 style="color:#ffffff;font-size:20px;line-height:1.35;margin:0 0 16px">${escapeEmailHtml(heading)}</h2>
+      <div style="color:#f5f3f7;font-size:15px;line-height:1.65">${body}</div>
+      ${codeBlock}${action}
+      <p style="color:#c6b8d7;font-size:13px;line-height:1.6;margin:28px 0 0">${escapeEmailHtml(footer)}</p>
+    </div>
+  </div>`;
+}
+
+async function sendSignupConfirmation(email, actionUrl) {
+  await sendTransactionalEmail({
+    from: env.smtpFrom,
+    to: [email],
+    subject: 'confirm your web-streaming email',
+    text: `Hey! Confirm your web-streaming email.\n\nPlease use this link to confirm your email address and finish signing up:\n${actionUrl}\n\nIf you did not create this account, you can ignore this email.`,
+    html: emailCard({
+      heading: 'hey! confirm your web-streaming email!',
+      body: '<p style="margin:0 0 16px">please click below to confirm this email address and finish signing up!</p>',
+      actionLabel: 'confirm email',
+      actionUrl,
+      footer: 'if you did not create this account, you can safely ignore this email.',
+    }),
+  });
+}
+
+async function sendPasswordRecovery(email, actionUrl) {
+  await sendTransactionalEmail({
+    from: env.smtpFrom,
+    to: [email],
+    subject: 'reset your web-streaming password',
+    text: `Forget your password? Silly billy!\n\nweb-streaming received a request to reset your password. Use this link:\n${actionUrl}\n\nIf you did not request this, you can safely ignore this email or secure your account if you think it has been accessed.`,
+    html: emailCard({
+      heading: 'forget your password? silly billy!',
+      body: '<p style="margin:0 0 16px">web-streaming received a request to reset your password.</p><p style="margin:0 0 16px">next time don\'t forget it!!!! (i forget my password all the time...god i suck)</p>',
+      actionLabel: 'click to reset password :3',
+      actionUrl,
+      footer: 'if you did not request this, you can safely ignore this email or secure your account if you think it has been accessed.',
+    }),
+  });
+}
+
 async function setup2faEmail(userId) {
   if (!env.supabaseServiceRoleKey) throw authError('Email 2FA requires SUPABASE_SERVICE_ROLE_KEY');
   const account = await getAccount(userId);
@@ -498,14 +606,14 @@ async function sendEmailOTP(userId) {
   await sendTransactionalEmail({
     from: env.smtpFrom || env.smtpUser,
     to: [account.email],
-    subject: 'Your WebStreaming 2FA code',
-    text: `Your sign-in code is: ${code}\n\nThis code expires in 10 minutes. If you did not request this, ignore this email.`,
-    html: `<div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:24px;background:#09070d;color:#f8f3ff;border-radius:12px">
-      <h2 style="color:#a568ff;margin-top:0">WebStreaming</h2>
-      <p>Your sign-in verification code is:</p>
-      <div style="font-size:36px;font-weight:700;letter-spacing:8px;color:#a568ff;padding:16px 0">${code}</div>
-      <p style="color:#a99db5;font-size:13px">This code expires in 10 minutes. If you didn't request this, you can ignore this email.</p>
-    </div>`,
+    subject: 'your web-streaming code',
+    text: `Your web-streaming code is ${code}. It expires in 10 minutes. If you did not request this, ignore this email.`,
+    html: emailCard({
+      heading: 'your web-streaming code',
+      body: '<p style="margin:0">code below. it expires in 10 minutes.</p>',
+      code,
+      footer: 'if you did not request this, you can safely ignore this email.',
+    }),
   });
 }
 
