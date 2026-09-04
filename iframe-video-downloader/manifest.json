@@ -9,7 +9,7 @@
   "action": { "default_popup": "popup.html", "default_title": "embed downloader" },
   "content_scripts": [{
     "matches": ["<all_urls>"],
-    "js": ["content.js"],
+    "js": ["mux.min.js", "content.js"],
     "all_frames": true,
     "match_about_blank": true,
     "run_at": "document_start"

@@ -297,8 +297,7 @@ function ifr(url,title){
   const cur=eps.find(s=>s.season===selectedSeason)
   const epOpts=cur?cur.episodes.map(e=>'<option value="'+e.number+'"'+(e.number===selectedEpisode?' selected':'')+'>'+e.number+'. '+esc(e.name)+'</option>').join(''):''
   const drops=eps.length?'<select id="pvSeason" onchange="pvFillEpisodes()">'+seasonOpts+'</select><select id="pvEpisode" onchange="pvPlay()">'+epOpts+'</select>':''
-  const dlBtn='<button class="btn btn-secondary" onclick="toggleDownloadGUI()" style="padding:4px 10px;font-size:12px;display:flex;align-items:center;gap:5px"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>DOWNLOAD</button>'
-  return'<div class="player-container"><div class="player-toolbar"><button class="detail-back" onclick="cp()"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>back</button>'+drops+dlBtn+'</div><div class="player-wrapper"><iframe id="playerIframe" src="'+u+'" allow="autoplay;encrypted-media;fullscreen" allowfullscreen referrerpolicy="no-referrer" style="position:absolute;inset:0;width:100%;height:100%;border:none;background:#000"></iframe></div></div>'
+  return'<div class="player-container"><div class="player-toolbar"><button class="detail-back" onclick="cp()"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>back</button>'+drops+'</div><div class="player-wrapper"><iframe id="playerIframe" src="'+u+'" allow="autoplay;encrypted-media;fullscreen" allowfullscreen referrerpolicy="no-referrer" style="position:absolute;inset:0;width:100%;height:100%;border:none;background:#000"></iframe></div></div>'
 }
 
 function pvFillEpisodes(){
