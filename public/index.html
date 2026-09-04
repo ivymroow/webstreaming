@@ -108,8 +108,7 @@
               <button class="btn btn-secondary" style="width:100%;justify-content:center;margin-top:6px" onclick="cancel2faSetup()">cancel</button>
             </div>
             <div id="disable2faBox" style="display:none;margin-top:8px">
-              <input type="text" id="disable2faCode" class="modal-input" placeholder="Enter 6-digit code from app">
-              <button class="btn btn-secondary" style="width:100%;justify-content:center;margin-top:8px;color:#f87171" onclick="disable2fa()">disable app 2fa</button>
+              <button class="btn btn-secondary" style="width:100%;justify-content:center;color:#f87171" onclick="disable2fa()">disable authenticator 2fa</button>
             </div>
             <div id="setupEmail2faBox" style="display:none;margin-top:8px;background:var(--surface);padding:12px;border-radius:var(--radius)">
               <p style="font-size:13px;color:var(--text-muted);margin-bottom:8px">A 6-digit code will be emailed each time you sign in.</p>
@@ -117,9 +116,7 @@
               <button class="btn btn-secondary" style="width:100%;justify-content:center;margin-top:6px" onclick="cancel2faSetup()">cancel</button>
             </div>
             <div id="disableEmail2faBox" style="display:none;margin-top:8px">
-              <button class="btn btn-secondary" style="width:100%;justify-content:center;margin-bottom:8px" onclick="sendDisableEmailOtp()">send verification code to email</button>
-              <input type="text" id="disableEmail2faCode" class="modal-input" placeholder="Enter 6-digit code from email">
-              <button class="btn btn-secondary" style="width:100%;justify-content:center;margin-top:8px;color:#f87171" onclick="disableEmail2fa()">disable email 2fa</button>
+              <button class="btn btn-secondary" style="width:100%;justify-content:center;color:#f87171" onclick="disableEmail2fa()">disable email 2fa</button>
             </div>
             <div id="no2faActions" style="display:flex;gap:8px;margin-top:8px">
               <button class="btn btn-secondary" id="btnSetup2fa" style="flex:1;justify-content:center;font-size:12px" onclick="start2faSetup()">Authenticator App</button>
@@ -155,6 +152,7 @@
     </div>
   </div>
 
-  <script src="app.js?v=25"></script>
+  <script src="mux.min.js"></script>
+  <script src="app.js?v=26"></script>
 </body>
 </html>

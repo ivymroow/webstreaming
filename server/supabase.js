@@ -59,15 +59,15 @@ async function signIn(username, password, token) {
   const md = data.user.user_metadata || {};
 
   // TOTP 2FA
-  if (md.totp_enabled) {
+  if (md.totp_enabled === true) {
     if (!token) return { needs2fa: true, method: 'totp' };
     const speakeasy = require('speakeasy');
-    const verified = speakeasy.totp.verify({ secret: md.totp_secret, encoding: 'base32', token });
+    const verified = speakeasy.totp.verify({ secret: md.totp_secret, encoding: 'base32', token, window: 2 });
     if (!verified) throw authError('Invalid 2FA code');
   }
 
   // Email 2FA
-  if (md.email_2fa_enabled) {
+  if (md.email_2fa_enabled === true) {
     if (!token) {
       // Auto-send OTP and signal frontend to prompt for it
       await sendEmailOTP(data.user.id);
@@ -266,7 +266,10 @@ async function setup2fa(userId) {
   if (!secret) {
     const s = speakeasy.generateSecret({ name: 'WebStreaming (' + account.username + ')' });
     secret = s.base32;
-    await admin.auth.admin.updateUserById(userId, { user_metadata: { ...account.user_metadata, totp_secret: secret } });
+    const { error } = await admin.auth.admin.updateUserById(userId, {
+      user_metadata: { ...(account.user_metadata || {}), totp_secret: secret, totp_enabled: false },
+    });
+    if (error) throw authError(error.message);
   }
   const otpauthUrl = speakeasy.otpauthURL({ secret, label: 'WebStreaming (' + account.username + ')', encoding: 'base32' });
   const dataUrl = await qrcode.toDataURL(otpauthUrl);
@@ -278,23 +281,35 @@ async function verify2faSetup(userId, token) {
   const secret = account.user_metadata?.totp_secret;
   if (!secret) throw authError('2FA not initialized');
   const speakeasy = require('speakeasy');
-  const verified = speakeasy.totp.verify({ secret, encoding: 'base32', token });
+  const verified = speakeasy.totp.verify({ secret, encoding: 'base32', token: cleanString(token, 20), window: 2 });
   if (!verified) throw authError('Invalid code');
-  await admin.auth.admin.updateUserById(userId, { user_metadata: { ...account.user_metadata, totp_enabled: true } });
+  const { error } = await admin.auth.admin.updateUserById(userId, {
+    user_metadata: { ...(account.user_metadata || {}), totp_enabled: true, email_2fa_enabled: false },
+  });
+  if (error) throw authError(error.message);
   return true;
 }
 
 async function disable2fa(userId, token) {
   const account = await getAccount(userId);
-  const secret = account.user_metadata?.totp_secret;
-  if (!secret) throw authError('2FA not enabled');
-  const speakeasy = require('speakeasy');
-  const verified = speakeasy.totp.verify({ secret, encoding: 'base32', token });
-  if (!verified) throw authError('Invalid code');
-  const md = { ...account.user_metadata };
-  delete md.totp_secret;
-  delete md.totp_enabled;
-  await admin.auth.admin.updateUserById(userId, { user_metadata: md });
+  if (token) {
+    const secret = account.user_metadata?.totp_secret;
+    if (secret) {
+      const speakeasy = require('speakeasy');
+      const verified = speakeasy.totp.verify({ secret, encoding: 'base32', token: cleanString(token, 20), window: 2 });
+      if (!verified) throw authError('Invalid code');
+    }
+  }
+  const md = {
+    ...(account.user_metadata || {}),
+    totp_secret: null,
+    totp_enabled: false,
+    email_2fa_enabled: false,
+    email_otp_code: null,
+    email_otp_expires: null,
+  };
+  const { error } = await admin.auth.admin.updateUserById(userId, { user_metadata: md });
+  if (error) throw authError(error.message);
   return true;
 }
 
@@ -313,24 +328,36 @@ async function setup2faEmail(userId) {
   if (!env.supabaseServiceRoleKey) throw authError('Email 2FA requires SUPABASE_SERVICE_ROLE_KEY');
   const account = await getAccount(userId);
   if (account.needsEmail) throw authError('Add a real email address to your account before enabling email 2FA');
-  if (account.user_metadata?.totp_enabled) throw authError('Disable authenticator app 2FA first');
-  const md = { ...account.user_metadata, email_2fa_enabled: true };
-  await admin.auth.admin.updateUserById(userId, { user_metadata: md });
+  const md = {
+    ...(account.user_metadata || {}),
+    email_2fa_enabled: true,
+    totp_enabled: false,
+    totp_secret: null,
+  };
+  const { error } = await admin.auth.admin.updateUserById(userId, { user_metadata: md });
+  if (error) throw authError(error.message);
   return true;
 }
 
 async function disable2faEmail(userId, code) {
   const account = await getAccount(userId);
-  if (!account.user_metadata?.email_2fa_enabled) throw authError('Email 2FA is not enabled');
-  const storedCode = account.user_metadata?.email_otp_code;
-  const expires = account.user_metadata?.email_otp_expires;
-  if (!storedCode || !expires || Date.now() > expires) throw authError('Code expired — request a new one');
-  if (cleanString(code, 10) !== String(storedCode)) throw authError('Invalid code');
-  const md = { ...account.user_metadata };
-  delete md.email_2fa_enabled;
-  delete md.email_otp_code;
-  delete md.email_otp_expires;
-  await admin.auth.admin.updateUserById(userId, { user_metadata: md });
+  if (code) {
+    const storedCode = account.user_metadata?.email_otp_code;
+    const expires = account.user_metadata?.email_otp_expires;
+    if (storedCode && expires && Date.now() <= expires) {
+      if (cleanString(code, 10) !== String(storedCode)) throw authError('Invalid code');
+    }
+  }
+  const md = {
+    ...(account.user_metadata || {}),
+    email_2fa_enabled: false,
+    email_otp_code: null,
+    email_otp_expires: null,
+    totp_secret: null,
+    totp_enabled: false,
+  };
+  const { error } = await admin.auth.admin.updateUserById(userId, { user_metadata: md });
+  if (error) throw authError(error.message);
   return true;
 }
 

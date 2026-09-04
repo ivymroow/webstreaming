@@ -36,10 +36,10 @@ router.post('/2fa/verify', requireBody('token'), asyncHandler(async (req, res) =
   res.json({ ok: true });
 }));
 
-router.post('/2fa/disable', requireBody('token'), asyncHandler(async (req, res) => {
+router.post('/2fa/disable', asyncHandler(async (req, res) => {
   const user = await requireUser(req, res);
   if (!user) return;
-  await supabase.disable2fa(user.id, req.body.token);
+  await supabase.disable2fa(user.id, req.body?.token);
   res.json({ ok: true });
 }));
 
@@ -50,10 +50,10 @@ router.post('/2fa/email/setup', asyncHandler(async (req, res) => {
   res.json({ ok: true });
 }));
 
-router.post('/2fa/email/disable', requireBody('code'), asyncHandler(async (req, res) => {
+router.post('/2fa/email/disable', asyncHandler(async (req, res) => {
   const user = await requireUser(req, res);
   if (!user) return;
-  await supabase.disable2faEmail(user.id, req.body.code);
+  await supabase.disable2faEmail(user.id, req.body?.code);
   res.json({ ok: true });
 }));
 

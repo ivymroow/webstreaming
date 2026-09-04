@@ -328,26 +328,178 @@ async function pvPlay(){
   }
 }
 
-// ---- Download GUI panel ----
+// ---- Download GUI panel & Live HLS Downloader ----
+function attr(line,name){const m=line.match(new RegExp(`${name}=(?:"([^"]+)"|([^,]+))`));return m?.[1]||m?.[2]||""}
+function mp4Boxes(bytes){
+  const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength),boxes=[];
+  const containers=new Set(["moov","trak","mdia"]);
+  function walk(from,to){
+    for(let p=from;p+8<=to;){
+      let size=view.getUint32(p),header=8;
+      const type=String.fromCharCode(bytes[p+4],bytes[p+5],bytes[p+6],bytes[p+7]);
+      if(size===1&&p+16<=to){size=Number(view.getBigUint64(p+8));header=16}
+      if(!size)size=to-p;if(size<header||p+size>to)break;
+      boxes.push({type,start:p,size});
+      if(containers.has(type))walk(p+header,p+size);
+      p+=size;
+    }
+  }
+  walk(0,bytes.byteLength);return {view,boxes};
+}
+function patchMp4Durations(source,totalSeconds){
+  const bytes=new Uint8Array(source),{view,boxes}=mp4Boxes(bytes);
+  const mvhd=boxes.find(b=>b.type==="mvhd");
+  let movieScale=1000;
+  if(mvhd){
+    const v=bytes[mvhd.start+8],scaleAt=mvhd.start+(v?28:20),durationAt=mvhd.start+(v?32:24);
+    movieScale=view.getUint32(scaleAt)||1000;
+    if(v)view.setBigUint64(durationAt,BigInt(Math.round(totalSeconds*movieScale)));else view.setUint32(durationAt,Math.round(totalSeconds*movieScale));
+  }
+  for(const box of boxes){
+    const v=bytes[box.start+8];
+    if(box.type==="tkhd"){
+      const at=box.start+(v?36:28),value=Math.round(totalSeconds*movieScale);
+      if(v)view.setBigUint64(at,BigInt(value));else view.setUint32(at,value);
+    }else if(box.type==="mdhd"){
+      const scaleAt=box.start+(v?28:20),at=box.start+(v?32:24),scale=view.getUint32(scaleAt)||movieScale,value=Math.round(totalSeconds*scale);
+      if(v)view.setBigUint64(at,BigInt(value));else view.setUint32(at,value);
+    }
+  }
+  return bytes;
+}
+function transmuxTs(buffers,durations,totalSeconds){
+  if(typeof muxjs==='undefined')throw new Error("Transmuxer library not loaded.");
+  const out=[];let initSegment=null,baseSeconds=0;
+  buffers.forEach((buffer,index)=>{
+    const tx=new muxjs.mp4.Transmuxer({keepOriginalTimestamps:false});
+    tx.setBaseMediaDecodeTime(Math.round(baseSeconds*90000));
+    tx.on("data",segment=>{if(!initSegment)initSegment=segment.initSegment;out.push(segment.data)});
+    tx.push(new Uint8Array(buffer));tx.flush();
+    baseSeconds+=durations[index]||0;
+  });
+  if(!initSegment)return new Blob([],{type:"video/mp4"});
+  return new Blob([patchMp4Durations(initSegment,totalSeconds),...out],{type:"video/mp4"});
+}
+
+async function dlGuiHlsDownload(item){
+  try{
+    dlGuiSetStatus("Reading HLS playlist…");
+    let playlistUrl=item.url;
+    let res=await fetch(playlistUrl);
+    if(!res.ok)throw new Error("Could not fetch playlist ("+res.status+")");
+    let text=await res.text();
+    if(text.includes("#EXT-X-KEY"))throw new Error("Encrypted HLS streams cannot be converted.");
+    if(text.includes("#EXT-X-STREAM-INF")){
+      const lines=text.split(/\r?\n/),variants=[];
+      for(let i=0;i<lines.length;i++)if(lines[i].startsWith("#EXT-X-STREAM-INF"))variants.push({bw:+attr(lines[i],"BANDWIDTH")||0,url:new URL(lines[i+1],playlistUrl).href});
+      variants.sort((a,b)=>b.bw-a.bw);playlistUrl=variants[0]?.url||playlistUrl;text=await (await fetch(playlistUrl)).text();
+    }
+    if(text.includes("#EXT-X-KEY"))throw new Error("Encrypted HLS streams cannot be converted.");
+    const playlistLines=text.split(/\r?\n/).map(x=>x.trim());
+    const mapLine=playlistLines.find(x=>x.startsWith("#EXT-X-MAP:"));
+    const mapUrl=mapLine?new URL(attr(mapLine,"URI"),playlistUrl).href:null;
+    const entries=[];let pendingDuration=0;
+    for(const line of playlistLines){
+      if(line.startsWith("#EXTINF:"))pendingDuration=parseFloat(line.slice(8))||0;
+      else if(line&&!line.startsWith("#")){entries.push({url:new URL(line,playlistUrl).href,duration:pendingDuration});pendingDuration=0}
+    }
+    const urls=entries.map(x=>x.url),durations=entries.map(x=>x.duration),totalSeconds=durations.reduce((a,b)=>a+b,0);
+    if(!urls.length)throw new Error("No HLS segments found.");
+    const parts=[];
+    if(mapUrl){const r=await fetch(mapUrl);if(!r.ok)throw new Error("MP4 initialization failed ("+r.status+")");parts.push(await r.arrayBuffer())}
+    for(let i=0;i<urls.length;i++){
+      dlGuiSetStatus(`Downloading segment ${i+1} of ${urls.length}…`);
+      const r=await fetch(urls[i]);
+      if(!r.ok)throw new Error(`Segment ${i+1} failed (${r.status})`);
+      parts.push(await r.arrayBuffer());
+    }
+    dlGuiSetStatus("Converting stream to MP4…");
+    const first=new Uint8Array(parts[0]),isTs=first[0]===0x47;
+    const blob=isTs?transmuxTs(parts,durations,totalSeconds):new Blob([patchMp4Durations(parts[0],totalSeconds),...parts.slice(1)],{type:"video/mp4"});
+    if(!blob.size)throw new Error("Conversion produced an empty file.");
+    const safeTitle=(state.data?.title||item.title||"video").replace(/[\\/:*?"<>|]+/g,"_").slice(0,90)+".mp4";
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");a.href=url;a.download=safeTitle;a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
+    dlGuiSetStatus("MP4 download saved!");
+  }catch(e){
+    dlGuiSetStatus(e.message||"HLS download failed.",true);
+  }
+}
+
+function captureMediaItem(url,type="VIDEO",title=""){
+  if(!url||!/^https?:/i.test(url))return;
+  if(!window._dlGuiItems)window._dlGuiItems=[];
+  const isHls=/\.m3u8/i.test(url)||/mpegurl/i.test(type);
+  const detectedType=isHls?"HLS":(type||"VIDEO");
+  const existing=window._dlGuiItems.find(x=>x.url===url);
+  if(existing){
+    if(detectedType==="HLS")existing.type="HLS";
+  }else{
+    window._dlGuiItems.unshift({url,type:detectedType,title:title||document.title,source:"page"});
+    if(window._dlGuiItems.length>100)window._dlGuiItems.pop();
+    if(qs('#dl-gui-panel'))dlGuiRender(window._dlGuiItems);
+  }
+}
+
+function dlGuiPoll(){
+  try{
+    performance.getEntriesByType?.("resource").forEach(e=>{
+      if(/\.(mp4|webm|mov|m4v|m3u8)(?:$|[?#])|\.m3u8/i.test(e.name)){
+        captureMediaItem(e.name,/\.m3u8/i.test(e.name)?"HLS":"VIDEO");
+      }
+    });
+    document.querySelectorAll("video, source").forEach(el=>{
+      if(el.src)captureMediaItem(el.src,/\.m3u8/i.test(el.src)?"HLS":"VIDEO");
+      if(el.currentSrc)captureMediaItem(el.currentSrc,/\.m3u8/i.test(el.currentSrc)?"HLS":"VIDEO");
+    });
+    window.postMessage({_wsBridge:"list"},"*");
+  }catch{}
+}
+
+// Observe network resources continuously
+try{
+  const po=new PerformanceObserver(list=>{
+    list.getEntries().forEach(e=>{
+      if(/\.(mp4|webm|mov|m4v|m3u8)(?:$|[?#])|\.m3u8/i.test(e.name)){
+        captureMediaItem(e.name,/\.m3u8/i.test(e.name)?"HLS":"VIDEO");
+      }
+    });
+  });
+  po.observe({type:"resource",buffered:true});
+}catch{}
+
 function toggleDownloadGUI(){
   let panel=qs('#dl-gui-panel')
-  if(panel){panel.remove();return}
+  if(panel){
+    if(window._dlGuiPollTimer){clearInterval(window._dlGuiPollTimer);window._dlGuiPollTimer=null}
+    panel.remove();
+    return
+  }
   panel=document.createElement('div')
   panel.id='dl-gui-panel'
   panel.style.cssText='position:fixed;bottom:70px;right:16px;z-index:9999;width:370px;background:radial-gradient(circle at 50% -20%,#32164f,transparent 45%),#09070d;color:#f8f3ff;font:13px Inter,Arial,sans-serif;border:1px solid #30233d;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.6);overflow:hidden'
   panel.innerHTML=`
     <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #30233d">
-      <div><div style="font-size:15px;font-weight:700;margin-bottom:2px">embed downloader <span style="font-size:10px;color:#a568ff;vertical-align:middle">v1.0</span></div><div style="color:#a99db5;font-size:11px">developed · by ivymroow</div></div>
+      <div>
+        <div style="font-size:15px;font-weight:700;margin-bottom:2px">embed downloader <span style="font-size:10px;color:#a568ff;vertical-align:middle">v1.0</span></div>
+        <div style="color:#a99db5;font-size:11px">developed · by ivymroow</div>
+      </div>
       <div style="display:flex;gap:6px;align-items:center">
         <button onclick="dlGuiClear()" style="border:1px solid #30233d;background:#20152d;color:#f8f3ff;border-radius:8px;padding:5px 10px;cursor:pointer;font-size:12px">Clear</button>
-        <button onclick="document.getElementById('dl-gui-panel').remove()" style="border:1px solid #30233d;background:#20152d;color:#f8f3ff;border-radius:8px;padding:5px 8px;cursor:pointer">✕</button>
+        <button onclick="toggleDownloadGUI()" style="border:1px solid #30233d;background:#20152d;color:#f8f3ff;border-radius:8px;padding:5px 8px;cursor:pointer">✕</button>
       </div>
     </div>
-    <div id="dl-gui-list" style="padding:10px;max-height:340px;overflow-y:auto"><div style="text-align:center;color:#a99db5;padding:40px 20px">play the video, then reopen this panel.</div></div>
-    <div id="dl-gui-status" style="padding:8px 14px;color:#a99db5;border-top:1px solid #30233d;font-size:11px">ready</div>
+    <div id="dl-gui-list" style="padding:10px;max-height:340px;overflow-y:auto">
+      <div style="text-align:center;color:#a99db5;padding:40px 20px">Play the video to capture streams live.</div>
+    </div>
+    <div id="dl-gui-status" style="padding:8px 14px;color:#a99db5;border-top:1px solid #30233d;font-size:11px">monitoring live…</div>
   `
   document.body.appendChild(panel)
-  dlGuiRefresh()
+  dlGuiPoll()
+  dlGuiRender(window._dlGuiItems||[])
+  if(window._dlGuiPollTimer)clearInterval(window._dlGuiPollTimer)
+  window._dlGuiPollTimer=setInterval(dlGuiPoll,1000)
 }
 
 function dlGuiSetStatus(msg,err=false){
@@ -356,45 +508,29 @@ function dlGuiSetStatus(msg,err=false){
   el.style.color=err?'#ff8c9e':'#a99db5'
 }
 
-async function dlGuiRefresh(){
-  const list=qs('#dl-gui-list');if(!list)return
-  // Try extension first
-  if(typeof chrome!=='undefined'&&chrome.runtime){
-    try{
-      const [tab]=await chrome.tabs.query({active:true,currentWindow:true})
-      const res=await chrome.runtime.sendMessage({type:'list',tabId:tab.id})
-      dlGuiRender(res.items||[]);return
-    }catch{}
-  }
-  // Fallback: sniff captured network items stored by content script messages
-  const items=window._dlGuiItems||[]
-  dlGuiRender(items)
-}
-
 async function dlGuiClear(){
   window._dlGuiItems=[]
-  if(typeof chrome!=='undefined'&&chrome.runtime){
-    try{
-      const [tab]=await chrome.tabs.query({active:true,currentWindow:true})
-      await chrome.runtime.sendMessage({type:'clear',tabId:tab.id})
-    }catch{}
-  }
+  window._dlGuiCurrentItems=[]
+  window.postMessage({_wsBridge:"clear"},"*")
   dlGuiRender([])
   dlGuiSetStatus('List cleared.')
 }
 
 function dlGuiRender(items){
   const list=qs('#dl-gui-list');if(!list)return
-  if(!items||!items.length){list.innerHTML='<div style="text-align:center;color:#a99db5;padding:40px 20px">Play the video, then reopen this panel.</div>';return}
+  if(!items||!items.length){
+    list.innerHTML='<div style="text-align:center;color:#a99db5;padding:40px 20px">Play the video to capture streams live.</div>';
+    return
+  }
   list.innerHTML=items.map((item,i)=>`
     <div style="background:linear-gradient(135deg,#171020,#100d15);border:1px solid #30233d;border-radius:10px;padding:10px;margin-bottom:8px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-        <span style="font-size:10px;font-weight:800;color:#160922;background:#a568ff;padding:2px 6px;border-radius:5px">${esc(item.type||'VIDEO')}</span>
-        <strong style="font-size:13px">Detected media</strong>
+        <span style="font-size:10px;font-weight:800;color:#160922;background:${item.type==='HLS'?'#f59e0b':'#a568ff'};padding:2px 6px;border-radius:5px">${esc(item.type||'VIDEO')}</span>
+        <strong style="font-size:13px">${item.type==='HLS'?'Live HLS Stream':'Detected Media'}</strong>
       </div>
       <div style="color:#cbbfd5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:8px;font-size:11px" title="${esc(item.url||'')}">${esc(item.url||'')}</div>
       <div style="display:flex;gap:6px">
-        <button onclick="dlGuiDownload(${i})" style="flex:1;background:#a568ff;color:#100717;border:0;font-weight:700;border-radius:8px;padding:7px 10px;cursor:pointer">${item.type==='HLS'?'Download HLS':'Download'}</button>
+        <button onclick="dlGuiDownload(${i})" style="flex:1;background:#a568ff;color:#100717;border:0;font-weight:700;border-radius:8px;padding:7px 10px;cursor:pointer">${item.type==='HLS'?'Download HLS (MP4)':'Download'}</button>
         <button onclick="dlGuiCopy(${i})" style="border:1px solid #30233d;background:#20152d;color:#f8f3ff;border-radius:8px;padding:7px 10px;cursor:pointer">Copy URL</button>
       </div>
     </div>
@@ -410,27 +546,19 @@ async function dlGuiCopy(i){
 async function dlGuiDownload(i){
   const items=window._dlGuiCurrentItems||[];const item=items[i];if(!item)return
   if(item.type==='HLS'){
-    dlGuiSetStatus('HLS download: open extension popup for HLS support, or copy URL and use a tool like yt-dlp.');return
+    return dlGuiHlsDownload(item)
   }
-  // Direct download via <a> tag
-  try{
-    if(typeof chrome!=='undefined'&&chrome.runtime){
-      const safe=(item.url||'video').replace(/[\\/:*?"<>|]+/g,'_').slice(0,90)+'.mp4'
-      const r=await chrome.runtime.sendMessage({type:'download',url:item.url,filename:safe})
-      dlGuiSetStatus(r.ok?'Download started.':r.error,!r.ok);return
-    }
-  }catch{}
   const a=document.createElement('a');a.href=item.url;a.download='';a.target='_blank';a.click()
   dlGuiSetStatus('Download started.')
 }
 
-// Listen for video URLs detected by page — works without extension too
+// Real-time listener for video & HLS captures from extension, iframes, and bridge
 window.addEventListener('message',e=>{
-  if(e.data&&e.data._wsVideoCaptured){
-    if(!window._dlGuiItems)window._dlGuiItems=[]
-    const existing=window._dlGuiItems.find(x=>x.url===e.data.url)
-    if(!existing)window._dlGuiItems.unshift({url:e.data.url,type:e.data.type||'VIDEO',source:'page'})
-    if(qs('#dl-gui-list'))dlGuiRender(window._dlGuiItems)
+  if(!e.data)return
+  if(e.data._wsVideoCaptured&&e.data.url){
+    captureMediaItem(e.data.url,e.data.type||'VIDEO',e.data.title||'')
+  }else if(e.data._wsBridgeReply==='list'&&Array.isArray(e.data.items)){
+    e.data.items.forEach(it=>captureMediaItem(it.url,it.type,it.title))
   }
 })
 
@@ -702,11 +830,9 @@ async function sendDisableEmailOtp(){
   }
 }
 async function disableEmail2fa(){
-  const code=qs('#disableEmail2faCode').value.trim();
-  if(!code)return alert('Enter the code sent to your email');
+  if(!confirm('Are you sure you want to disable Email 2FA?'))return;
   try{
-    await api('POST','/api/auth/2fa/email/disable',{code});
-    qs('#disableEmail2faCode').value='';
+    await api('POST','/api/auth/2fa/email/disable',{});
     showAccountSettings();
   }catch(e){
     alert(cleanAuthError(e.message));
@@ -725,11 +851,9 @@ async function verify2fa(){
   }
 }
 async function disable2fa(){
-  const token=qs('#disable2faCode').value.trim();
-  if(!token)return alert('Enter the code from your app to disable');
+  if(!confirm('Are you sure you want to disable Authenticator 2FA?'))return;
   try{
-    await api('POST','/api/auth/2fa/disable',{token});
-    qs('#disable2faCode').value='';
+    await api('POST','/api/auth/2fa/disable',{});
     showAccountSettings();
   }catch(e){
     alert(cleanAuthError(e.message));
