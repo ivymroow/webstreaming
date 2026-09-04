@@ -1,4 +1,5 @@
 const byTab = new Map();
+const allRecentMedia = [];
 const VIDEO_RE = /\.(mp4|webm|mov|m4v|m3u8)(?:$|[?#])|\.m3u8/i;
 
 function kind(url, type = "") {
@@ -8,16 +9,37 @@ function kind(url, type = "") {
 }
 
 function add(tabId, item) {
-  if (tabId < 0 || !item?.url || !/^https?:/i.test(item.url)) return;
-  const list = byTab.get(tabId) || [];
-  const existing = list.find(x => x.url === item.url);
-  if (existing) Object.assign(existing, item);
-  else list.unshift({ ...item, id: crypto.randomUUID(), detectedAt: Date.now() });
-  byTab.set(tabId, list.slice(0, 100));
-  try {
-    chrome.tabs.sendMessage(tabId, { type: "detected", item }).catch(() => {});
-  } catch {}
+  if (!item?.url || !/^https?:/i.test(item.url)) return;
+  if (/\.(vtt|srt|png|jpg|jpeg|gif|css|js|woff2?)(?:$|[?#])/i.test(item.url)) return;
+
+  const existingGlobal = allRecentMedia.find(x => x.url === item.url);
+  if (existingGlobal) Object.assign(existingGlobal, item);
+  else allRecentMedia.unshift({ ...item, id: crypto.randomUUID(), detectedAt: Date.now() });
+  if (allRecentMedia.length > 200) allRecentMedia.pop();
+
+  if (tabId >= 0) {
+    const list = byTab.get(tabId) || [];
+    const existing = list.find(x => x.url === item.url);
+    if (existing) Object.assign(existing, item);
+    else list.unshift({ ...item, id: crypto.randomUUID(), detectedAt: Date.now() });
+    byTab.set(tabId, list.slice(0, 100));
+    try {
+      chrome.tabs.sendMessage(tabId, { type: "detected", item }).catch(() => {});
+    } catch {}
+  } else {
+    chrome.tabs.query({ active: true, currentWindow: true }).then(tabs => {
+      if (tabs[0]?.id) {
+        chrome.tabs.sendMessage(tabs[0].id, { type: "detected", item }).catch(() => {});
+      }
+    }).catch(() => {});
+  }
 }
+
+chrome.webRequest.onBeforeRequest.addListener(details => {
+  if (VIDEO_RE.test(details.url)) {
+    add(details.tabId, { url: details.url, type: kind(details.url), source: "network" });
+  }
+}, { urls: ["<all_urls>"] });
 
 chrome.webRequest.onHeadersReceived.addListener(details => {
   const headers = Object.fromEntries((details.responseHeaders || []).map(h => [h.name.toLowerCase(), h.value || ""]));
@@ -33,9 +55,12 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
     reply({ ok: true });
   } else if (msg.type === "list") {
     const tid = (msg.tabId != null && msg.tabId >= 0) ? msg.tabId : sender.tab?.id;
-    reply({ items: byTab.get(tid) || [] });
+    const tabList = tid != null ? byTab.get(tid) : null;
+    reply({ items: (tabList && tabList.length) ? tabList : allRecentMedia });
   } else if (msg.type === "clear") {
-    byTab.delete(msg.tabId); reply({ ok: true });
+    if (msg.tabId != null && msg.tabId >= 0) byTab.delete(msg.tabId);
+    allRecentMedia.length = 0;
+    reply({ ok: true });
   } else if (msg.type === "download") {
     chrome.downloads.download({ url: msg.url, filename: msg.filename, saveAs: true })
       .then(id => reply({ ok: true, id })).catch(e => reply({ ok: false, error: e.message }));
@@ -44,3 +69,4 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
 });
 
 chrome.tabs.onRemoved.addListener(tabId => byTab.delete(tabId));
+

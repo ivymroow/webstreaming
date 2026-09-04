@@ -442,6 +442,14 @@ function captureMediaItem(url,type="VIDEO",title=""){
   }
 }
 
+function dlGuiAddManual(){
+  const inp=qs('#dlGuiManualUrl');if(!inp)return;
+  const val=inp.value.trim();if(!val)return;
+  captureMediaItem(val,/\.m3u8/i.test(val)?"HLS":"VIDEO","Manual Stream");
+  inp.value="";
+  dlGuiSetStatus("Added stream: "+val.slice(0,50)+"…");
+}
+
 function dlGuiPoll(){
   try{
     performance.getEntriesByType?.("resource").forEach(e=>{
@@ -453,20 +461,32 @@ function dlGuiPoll(){
       if(el.src)captureMediaItem(el.src,/\.m3u8/i.test(el.src)?"HLS":"VIDEO");
       if(el.currentSrc)captureMediaItem(el.currentSrc,/\.m3u8/i.test(el.currentSrc)?"HLS":"VIDEO");
     });
+    window.dispatchEvent(new CustomEvent("ws-request-media-list"));
     window.postMessage({_wsBridge:"list"},"*");
   }catch{}
 }
 
-// Observe network resources continuously
+// Hook fetch and XMLHttpRequest to detect any stream requests
 try{
-  const po=new PerformanceObserver(list=>{
-    list.getEntries().forEach(e=>{
-      if(/\.(mp4|webm|mov|m4v|m3u8)(?:$|[?#])|\.m3u8/i.test(e.name)){
-        captureMediaItem(e.name,/\.m3u8/i.test(e.name)?"HLS":"VIDEO");
+  const origFetch=window.fetch;
+  window.fetch=function(...args){
+    try{
+      const u=typeof args[0]==='string'?args[0]:(args[0]?.url||'');
+      if(/\.(mp4|webm|mov|m4v|m3u8)(?:$|[?#])|\.m3u8/i.test(u)){
+        captureMediaItem(u,/\.m3u8/i.test(u)?"HLS":"VIDEO");
       }
-    });
-  });
-  po.observe({type:"resource",buffered:true});
+    }catch{}
+    return origFetch.apply(this,args);
+  };
+  const origOpen=XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open=function(method,url,...rest){
+    try{
+      if(typeof url==='string'&&(/\.(mp4|webm|mov|m4v|m3u8)(?:$|[?#])|\.m3u8/i.test(url))){
+        captureMediaItem(url,/\.m3u8/i.test(url)?"HLS":"VIDEO");
+      }
+    }catch{}
+    return origOpen.call(this,method,url,...rest);
+  };
 }catch{}
 
 function toggleDownloadGUI(){
@@ -478,7 +498,7 @@ function toggleDownloadGUI(){
   }
   panel=document.createElement('div')
   panel.id='dl-gui-panel'
-  panel.style.cssText='position:fixed;bottom:70px;right:16px;z-index:9999;width:370px;background:radial-gradient(circle at 50% -20%,#32164f,transparent 45%),#09070d;color:#f8f3ff;font:13px Inter,Arial,sans-serif;border:1px solid #30233d;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.6);overflow:hidden'
+  panel.style.cssText='position:fixed;bottom:70px;right:16px;z-index:9999;width:380px;background:radial-gradient(circle at 50% -20%,#32164f,transparent 45%),#09070d;color:#f8f3ff;font:13px Inter,Arial,sans-serif;border:1px solid #30233d;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.6);overflow:hidden'
   panel.innerHTML=`
     <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #30233d">
       <div>
@@ -490,8 +510,12 @@ function toggleDownloadGUI(){
         <button onclick="toggleDownloadGUI()" style="border:1px solid #30233d;background:#20152d;color:#f8f3ff;border-radius:8px;padding:5px 8px;cursor:pointer">✕</button>
       </div>
     </div>
-    <div id="dl-gui-list" style="padding:10px;max-height:340px;overflow-y:auto">
-      <div style="text-align:center;color:#a99db5;padding:40px 20px">Play the video to capture streams live.</div>
+    <div id="dl-gui-list" style="padding:10px;max-height:360px;overflow-y:auto"></div>
+    <div style="padding:8px 12px;border-top:1px solid #30233d;background:#15101d">
+      <div style="display:flex;gap:6px">
+        <input id="dlGuiManualUrl" placeholder="Paste direct .m3u8 or video link…" style="flex:1;background:#20152d;border:1px solid #30233d;color:#f8f3ff;border-radius:8px;padding:6px 10px;font-size:11px;outline:none">
+        <button onclick="dlGuiAddManual()" style="background:#a568ff;color:#100717;border:0;border-radius:8px;padding:6px 10px;font-weight:700;font-size:11px;cursor:pointer">Convert</button>
+      </div>
     </div>
     <div id="dl-gui-status" style="padding:8px 14px;color:#a99db5;border-top:1px solid #30233d;font-size:11px">monitoring live…</div>
   `
@@ -518,24 +542,50 @@ async function dlGuiClear(){
 
 function dlGuiRender(items){
   const list=qs('#dl-gui-list');if(!list)return
-  if(!items||!items.length){
-    list.innerHTML='<div style="text-align:center;color:#a99db5;padding:40px 20px">Play the video to capture streams live.</div>';
-    return
+  const embedUrl=qs('#playerIframe')?.src||state._embedUrl||'';
+  let html='';
+
+  if(items&&items.length){
+    html+=items.map((item,i)=>`
+      <div style="background:linear-gradient(135deg,#171020,#100d15);border:1px solid #30233d;border-radius:10px;padding:10px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="font-size:10px;font-weight:800;color:#160922;background:${item.type==='HLS'?'#f59e0b':'#a568ff'};padding:2px 6px;border-radius:5px">${esc(item.type||'VIDEO')}</span>
+          <strong style="font-size:13px">${item.type==='HLS'?'Live HLS Stream':'Detected Media'}</strong>
+        </div>
+        <div style="color:#cbbfd5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:8px;font-size:11px" title="${esc(item.url||'')}">${esc(item.url||'')}</div>
+        <div style="display:flex;gap:6px">
+          <button onclick="dlGuiDownload(${i})" style="flex:1;background:#a568ff;color:#100717;border:0;font-weight:700;border-radius:8px;padding:7px 10px;cursor:pointer">${item.type==='HLS'?'Download HLS (MP4)':'Download'}</button>
+          <button onclick="dlGuiCopy(${i})" style="border:1px solid #30233d;background:#20152d;color:#f8f3ff;border-radius:8px;padding:7px 10px;cursor:pointer">Copy URL</button>
+        </div>
+      </div>
+    `).join('');
+    window._dlGuiCurrentItems=items;
+  }else{
+    html+=`
+      <div style="text-align:center;color:#a99db5;padding:18px 12px">
+        <div style="font-size:22px;margin-bottom:6px">📡</div>
+        <div style="font-weight:600;color:#f8f3ff;margin-bottom:4px">Sniffing player streams live…</div>
+        <div style="font-size:11px;color:#a99db5">Play the video below to trigger media requests.</div>
+      </div>
+    `;
+    if(embedUrl){
+      html+=`
+        <div style="background:linear-gradient(135deg,#171020,#100d15);border:1px solid #30233d;border-radius:10px;padding:10px;margin-bottom:8px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span style="font-size:10px;font-weight:800;color:#160922;background:#38bdf8;padding:2px 6px;border-radius:5px">EMBED</span>
+            <strong style="font-size:12px">Active Embed Frame</strong>
+          </div>
+          <div style="color:#cbbfd5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:8px;font-size:11px" title="${esc(embedUrl)}">${esc(embedUrl)}</div>
+          <div style="display:flex;gap:6px">
+            <a href="${esc(embedUrl)}" target="_blank" style="flex:1;text-align:center;text-decoration:none;background:#20152d;border:1px solid #30233d;color:#f8f3ff;border-radius:8px;padding:7px;font-size:11px">Open in New Tab</a>
+            <button onclick="navigator.clipboard.writeText('${jesc(embedUrl)}');dlGuiSetStatus('Embed URL copied.')" style="border:1px solid #30233d;background:#20152d;color:#f8f3ff;border-radius:8px;padding:7px 10px;cursor:pointer;font-size:11px">Copy</button>
+          </div>
+        </div>
+      `;
+    }
   }
-  list.innerHTML=items.map((item,i)=>`
-    <div style="background:linear-gradient(135deg,#171020,#100d15);border:1px solid #30233d;border-radius:10px;padding:10px;margin-bottom:8px">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-        <span style="font-size:10px;font-weight:800;color:#160922;background:${item.type==='HLS'?'#f59e0b':'#a568ff'};padding:2px 6px;border-radius:5px">${esc(item.type||'VIDEO')}</span>
-        <strong style="font-size:13px">${item.type==='HLS'?'Live HLS Stream':'Detected Media'}</strong>
-      </div>
-      <div style="color:#cbbfd5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:8px;font-size:11px" title="${esc(item.url||'')}">${esc(item.url||'')}</div>
-      <div style="display:flex;gap:6px">
-        <button onclick="dlGuiDownload(${i})" style="flex:1;background:#a568ff;color:#100717;border:0;font-weight:700;border-radius:8px;padding:7px 10px;cursor:pointer">${item.type==='HLS'?'Download HLS (MP4)':'Download'}</button>
-        <button onclick="dlGuiCopy(${i})" style="border:1px solid #30233d;background:#20152d;color:#f8f3ff;border-radius:8px;padding:7px 10px;cursor:pointer">Copy URL</button>
-      </div>
-    </div>
-  `).join('')
-  window._dlGuiCurrentItems=items
+
+  list.innerHTML=html;
 }
 
 async function dlGuiCopy(i){
@@ -555,11 +605,25 @@ async function dlGuiDownload(i){
 // Real-time listener for video & HLS captures from extension, iframes, and bridge
 window.addEventListener('message',e=>{
   if(!e.data)return
-  if(e.data._wsVideoCaptured&&e.data.url){
-    captureMediaItem(e.data.url,e.data.type||'VIDEO',e.data.title||'')
-  }else if(e.data._wsBridgeReply==='list'&&Array.isArray(e.data.items)){
-    e.data.items.forEach(it=>captureMediaItem(it.url,it.type,it.title))
-  }
+  try{
+    if(e.data._wsVideoCaptured&&e.data.url){
+      captureMediaItem(e.data.url,e.data.type||'VIDEO',e.data.title||'')
+    }else if(e.data._wsBridgeReply==='list'&&Array.isArray(e.data.items)){
+      e.data.items.forEach(it=>captureMediaItem(it.url,it.type,it.title))
+    }else{
+      // Check if message payload contains any .m3u8 or video URLs
+      const rawStr=typeof e.data==='string'?e.data:JSON.stringify(e.data);
+      const m=rawStr.match(/https?:\/\/[^"'\s\\]+\.(?:m3u8|mp4|webm)[^"'\s\\]*/gi);
+      if(m)m.forEach(u=>captureMediaItem(u,/\.m3u8/i.test(u)?'HLS':'VIDEO'));
+    }
+  }catch{}
+})
+
+window.addEventListener("ws-media-detected",e=>{
+  if(e.detail?.url)captureMediaItem(e.detail.url,e.detail.type,e.detail.title);
+})
+window.addEventListener("ws-media-list-response",e=>{
+  if(Array.isArray(e.detail))e.detail.forEach(it=>captureMediaItem(it.url,it.type,it.title));
 })
 
 async function streamAndPlay(hash,fi,dlId,ps,pl){
