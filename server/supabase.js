@@ -40,13 +40,14 @@ function passwordResetRedirectUrl() {
 
 async function signUp(username, password, email) {
   const safeUsername = cleanUsername(username);
+  const usernameKey = safeUsername.toLowerCase();
   const safeEmail = cleanString(email, 320);
-  const userEmail = safeEmail || `${safeUsername}@ws.local`;
+  const userEmail = safeEmail || `${usernameKey}@ws.local`;
   const { data, error } = await sb.auth.signUp({ email: userEmail, password, options: { data: { username: safeUsername } } });
   if (error) throw authError(error.message);
   if (env.supabaseServiceRoleKey && data?.user?.id) {
     await admin.from('ws_accounts').upsert({
-      username_key: safeUsername.toLowerCase(),
+      username_key: usernameKey,
       username: safeUsername,
       user_id: data.user.id,
       session_version: '',
@@ -61,19 +62,36 @@ async function signUp(username, password, email) {
 
 async function signIn(username, password, token) {
   const safeUsername = cleanUsername(username);
-  const localEmail = safeUsername.includes('@') ? safeUsername : `${safeUsername}@ws.local`;
-  let { data, error } = await sb.auth.signInWithPassword({ email: localEmail, password });
-  if (error && !safeUsername.includes('@') && env.supabaseServiceRoleKey) {
-    const userEmail = await getEmailForUsername(safeUsername);
-    if (userEmail !== localEmail) {
-      const retry = await sb.auth.signInWithPassword({ email: userEmail, password });
-      data = retry.data;
-      error = retry.error;
+  const usernameKey = safeUsername.toLowerCase();
+  const localEmail = `${usernameKey}@ws.local`;
+  if (safeUsername.includes('@')) {
+    const { data, error } = await sb.auth.signInWithPassword({ email: safeUsername, password });
+    if (error) throw authError(error.message);
+    return await finishSignIn(data.user, safeUsername, token);
+  }
+
+  let result = await sb.auth.signInWithPassword({ email: localEmail, password });
+  if (result.error && env.supabaseServiceRoleKey) {
+    const mappedEmail = await getEmailForUsername(safeUsername);
+    if (mappedEmail && mappedEmail !== localEmail) {
+      result = await sb.auth.signInWithPassword({ email: mappedEmail, password });
     }
   }
-  if (error) throw authError(error.message);
+  if (result.error) throw authError(result.error.message);
+  if (env.supabaseServiceRoleKey && result.data?.user?.id) {
+    await admin.from('ws_accounts').upsert({
+      username_key: usernameKey,
+      username: safeUsername,
+      user_id: result.data.user.id,
+      session_version: '',
+      reset_pending: false,
+    }, { onConflict: 'username_key' });
+  }
+  return await finishSignIn(result.data.user, safeUsername, token);
+}
 
-  const md = data.user.user_metadata || {};
+async function finishSignIn(user, safeUsername, token) {
+  const md = user.user_metadata || {};
 
   // TOTP 2FA
   if (md.totp_enabled === true) {
@@ -87,13 +105,13 @@ async function signIn(username, password, token) {
   if (md.email_2fa_enabled === true) {
     if (!token) {
       // Auto-send OTP and signal frontend to prompt for it
-      await sendEmailOTP(data.user.id);
+      await sendEmailOTP(user.id);
       return { needs2fa: true, method: 'email' };
     }
-    await verifyEmailOTP(data.user.id, token);
+    await verifyEmailOTP(user.id, token);
   }
 
-  return { user: userPayload(data.user, safeUsername) };
+  return { user: userPayload(user, safeUsername) };
 }
 
 async function setSession(accessToken, refreshToken) {
@@ -107,20 +125,21 @@ async function setSession(accessToken, refreshToken) {
 
 async function getEmailForUsername(username) {
   if (username.includes('@')) return username;
-  const localEmail = `${username}@ws.local`;
-  if (!env.supabaseServiceRoleKey) return localEmail;
+  const usernameKey = username.toLowerCase();
+  const localEmail = `${usernameKey}@ws.local`;
+  if (!env.supabaseServiceRoleKey) return null;
 
   const account = await admin
     .from('ws_accounts')
     .select('user_id')
-    .eq('username_key', username.toLowerCase())
+    .eq('username_key', usernameKey)
     .maybeSingle();
   if (account.data?.user_id) {
     const { data } = await admin.auth.admin.getUserById(account.data.user_id);
     if (data?.user?.email) return data.user.email;
   }
 
-  return localEmail;
+  return null;
 }
 
 async function getAccount(userId) {
