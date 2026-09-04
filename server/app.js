@@ -40,6 +40,10 @@ function createApp() {
     res.json({ status: 'ok', uptime: process.uptime(), version: process.env.npm_package_version || 'dev' });
   });
 
+  app.get('/privacy', (req, res) => {
+    res.sendFile(path.join(env.publicDir, 'privacy.html'));
+  });
+
   app.use('/api', mediaRoutes);
   app.use('/api/auth', authRoutes);
   app.use('/api/progress', progressRoutes);
