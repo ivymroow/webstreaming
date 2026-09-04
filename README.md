@@ -1,12 +1,4 @@
-# WebStreaming
+# webstreaming
+simple player lol
 
-a streaming site
-
-## Features
-
-lol
-
-
-## Notes
-
-this project is designed for personal use.
+[web-streaming.site](https://web-streaming.site/)
