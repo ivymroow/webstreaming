@@ -9,6 +9,19 @@ const env = require('../config/env');
 
 const router = express.Router();
 const K = env.tmdbKey;
+const VIDEO_URL_RE = /https?:\/\/[^\s"'<>\\]+?(?:\.m3u8|\.mp4|\.webm|\.mov|\.m4v)(?:[^\s"'<>\\]*)?/gi;
+
+function safeRemoteUrl(raw) {
+  const url = new URL(String(raw || ''));
+  if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Invalid media URL');
+  return url.href;
+}
+
+function mediaKind(url, contentType = '') {
+  if (/\.m3u8(?:$|[?#])/i.test(url) || /mpegurl/i.test(contentType)) return 'HLS';
+  const match = url.match(/\.(mp4|webm|mov|m4v)(?:$|[?#])/i);
+  return match ? match[1].toUpperCase() : 'VIDEO';
+}
 
 router.get('/status', (req, res) => {
   res.json({
@@ -32,6 +45,58 @@ router.get('/trending', asyncHandler(async (req, res) => {
 router.get('/popular', asyncHandler(async (req, res) => {
   const results = req.query.type === 'tv' ? await metadata.popularShows() : await metadata.popularMovies();
   res.json(results);
+}));
+
+router.get('/sniff-media', requireQuery('url'), asyncHandler(async (req, res) => {
+  const target = safeRemoteUrl(req.query.url);
+  const response = await axios.get(target, {
+    timeout: 12000,
+    maxContentLength: 2 * 1024 * 1024,
+    headers: {
+      'User-Agent': 'Mozilla/5.0',
+      Accept: 'text/html,application/xhtml+xml,application/xml,application/json,text/plain,*/*',
+      Referer: target,
+    },
+    validateStatus: status => status >= 200 && status < 400,
+  });
+  const contentType = response.headers['content-type'] || '';
+  if (/video|mpegurl/i.test(contentType) || /\.(mp4|webm|mov|m4v|m3u8)(?:$|[?#])/i.test(target)) {
+    res.json([{ url: target, type: mediaKind(target, contentType), source: 'embed' }]);
+    return;
+  }
+  const text = typeof response.data === 'string' ? response.data : JSON.stringify(response.data || '');
+  const seen = new Set();
+  const items = [];
+  for (const match of text.matchAll(VIDEO_URL_RE)) {
+    const url = match[0].replace(/&amp;/g, '&');
+    if (seen.has(url)) continue;
+    seen.add(url);
+    items.push({ url, type: mediaKind(url), source: 'embed' });
+  }
+  res.json(items.slice(0, 50));
+}));
+
+router.get('/media-proxy', requireQuery('url'), asyncHandler(async (req, res) => {
+  const target = safeRemoteUrl(req.query.url);
+  const response = await axios.get(target, {
+    timeout: 30000,
+    responseType: 'stream',
+    headers: {
+      'User-Agent': 'Mozilla/5.0',
+      Accept: '*/*',
+      Referer: target,
+      ...(req.headers.range ? { Range: req.headers.range } : {}),
+    },
+    validateStatus: status => status >= 200 && status < 400,
+  });
+  const contentType = response.headers['content-type'];
+  const contentLength = response.headers['content-length'];
+  const contentRange = response.headers['content-range'];
+  if (contentType) res.set('Content-Type', contentType);
+  if (contentLength) res.set('Content-Length', contentLength);
+  if (contentRange) res.set('Content-Range', contentRange);
+  if (response.status === 206) res.status(206);
+  response.data.pipe(res);
 }));
 
 router.get('/movie/:id', asyncHandler(async (req, res) => {

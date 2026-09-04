@@ -297,7 +297,7 @@ function ifr(url,title){
   const cur=eps.find(s=>s.season===selectedSeason)
   const epOpts=cur?cur.episodes.map(e=>'<option value="'+e.number+'"'+(e.number===selectedEpisode?' selected':'')+'>'+e.number+'. '+esc(e.name)+'</option>').join(''):''
   const drops=eps.length?'<select id="pvSeason" onchange="pvFillEpisodes()">'+seasonOpts+'</select><select id="pvEpisode" onchange="pvPlay()">'+epOpts+'</select>':''
-  const dlBtn='<button class="btn btn-secondary" onclick="toggleDownloadGUI()" style="padding:4px 10px;font-size:12px;display:flex;align-items:center;gap:5px"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download GUI</button>'
+  const dlBtn='<button class="btn btn-secondary" onclick="toggleDownloadGUI()" style="padding:4px 10px;font-size:12px;display:flex;align-items:center;gap:5px"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>DOWNLOAD</button>'
   return'<div class="player-container"><div class="player-toolbar"><button class="detail-back" onclick="cp()"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>back</button>'+drops+dlBtn+'</div><div class="player-wrapper"><iframe id="playerIframe" src="'+u+'" allow="autoplay;encrypted-media;fullscreen" allowfullscreen referrerpolicy="no-referrer" style="position:absolute;inset:0;width:100%;height:100%;border:none;background:#000"></iframe></div></div>'
 }
 
@@ -381,18 +381,31 @@ function transmuxTs(buffers,durations,totalSeconds){
   return new Blob([patchMp4Durations(initSegment,totalSeconds),...out],{type:"video/mp4"});
 }
 
+function dlGuiProxyUrl(url){
+  return (state.backendUrl||'')+'/api/media-proxy?url='+encodeURIComponent(url)
+}
+async function dlGuiFetch(url,as='text'){
+  let res
+  try{
+    res=await fetch(url)
+    if(!res.ok)throw new Error('HTTP '+res.status)
+  }catch{
+    res=await fetch(dlGuiProxyUrl(url))
+    if(!res.ok)throw new Error('Proxy HTTP '+res.status)
+  }
+  return as==='arrayBuffer'?res.arrayBuffer():res.text()
+}
+
 async function dlGuiHlsDownload(item){
   try{
     dlGuiSetStatus("Reading HLS playlist…");
     let playlistUrl=item.url;
-    let res=await fetch(playlistUrl);
-    if(!res.ok)throw new Error("Could not fetch playlist ("+res.status+")");
-    let text=await res.text();
+    let text=await dlGuiFetch(playlistUrl,'text');
     if(text.includes("#EXT-X-KEY"))throw new Error("Encrypted HLS streams cannot be converted.");
     if(text.includes("#EXT-X-STREAM-INF")){
       const lines=text.split(/\r?\n/),variants=[];
       for(let i=0;i<lines.length;i++)if(lines[i].startsWith("#EXT-X-STREAM-INF"))variants.push({bw:+attr(lines[i],"BANDWIDTH")||0,url:new URL(lines[i+1],playlistUrl).href});
-      variants.sort((a,b)=>b.bw-a.bw);playlistUrl=variants[0]?.url||playlistUrl;text=await (await fetch(playlistUrl)).text();
+      variants.sort((a,b)=>b.bw-a.bw);playlistUrl=variants[0]?.url||playlistUrl;text=await dlGuiFetch(playlistUrl,'text');
     }
     if(text.includes("#EXT-X-KEY"))throw new Error("Encrypted HLS streams cannot be converted.");
     const playlistLines=text.split(/\r?\n/).map(x=>x.trim());
@@ -406,12 +419,10 @@ async function dlGuiHlsDownload(item){
     const urls=entries.map(x=>x.url),durations=entries.map(x=>x.duration),totalSeconds=durations.reduce((a,b)=>a+b,0);
     if(!urls.length)throw new Error("No HLS segments found.");
     const parts=[];
-    if(mapUrl){const r=await fetch(mapUrl);if(!r.ok)throw new Error("MP4 initialization failed ("+r.status+")");parts.push(await r.arrayBuffer())}
+    if(mapUrl)parts.push(await dlGuiFetch(mapUrl,'arrayBuffer'))
     for(let i=0;i<urls.length;i++){
       dlGuiSetStatus(`Downloading segment ${i+1} of ${urls.length}…`);
-      const r=await fetch(urls[i]);
-      if(!r.ok)throw new Error(`Segment ${i+1} failed (${r.status})`);
-      parts.push(await r.arrayBuffer());
+      parts.push(await dlGuiFetch(urls[i],'arrayBuffer'));
     }
     dlGuiSetStatus("Converting stream to MP4…");
     const first=new Uint8Array(parts[0]),isTs=first[0]===0x47;
@@ -508,6 +519,7 @@ function dlGuiPoll(){
       if(el.src)captureMediaItem(el.src,/\.m3u8/i.test(el.src)?"HLS":"VIDEO");
       if(el.currentSrc)captureMediaItem(el.currentSrc,/\.m3u8/i.test(el.currentSrc)?"HLS":"VIDEO");
     });
+    window.postMessage({_wsBridge:"list"},"*");
   }catch{}
 }
 
@@ -557,6 +569,7 @@ function toggleDownloadGUI(){
         <div style="color:#a99db5;font-size:11px;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(title + epInfo)}</div>
       </div>
       <div style="display:flex;gap:6px;align-items:center">
+        <button onclick="dlGuiPoll();dlGuiSniffCurrentEmbed()" style="border:1px solid #38254c;background:#1a1126;color:#c4b5d4;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px">Scan</button>
         <button onclick="dlGuiClear()" style="border:1px solid #38254c;background:#1a1126;color:#c4b5d4;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px">Clear</button>
         <button onclick="toggleDownloadGUI()" style="border:1px solid #38254c;background:#1a1126;color:#c4b5d4;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px">✕</button>
       </div>
@@ -573,6 +586,7 @@ function toggleDownloadGUI(){
   `
   document.body.appendChild(panel)
   dlGuiPoll()
+  dlGuiSniffCurrentEmbed()
   dlGuiRender()
 }
 
@@ -587,6 +601,19 @@ async function dlGuiClear(){
   window._dlGuiCurrentItems=[]
   dlGuiRender()
   dlGuiSetStatus('Cleared captured streams.')
+}
+
+async function dlGuiSniffCurrentEmbed(){
+  const activeUrl=qs('#playerIframe')?.src||state._embedUrl||''
+  if(!activeUrl||state.mode!=='backend')return
+  dlGuiSetStatus('Scanning current embed...')
+  try{
+    const items=await api('GET','/api/sniff-media?url='+encodeURIComponent(activeUrl))
+    ;(items||[]).forEach(item=>captureMediaItem(item.url,item.type||'VIDEO',state.data?.title||document.title))
+    dlGuiSetStatus(items?.length?'Found '+items.length+' media link(s).':'No direct media found yet. Press play in the iframe, then Scan.')
+  }catch{
+    dlGuiSetStatus('Could not scan embed yet. Press play, then Scan.',true)
+  }
 }
 
 function dlGuiRender(){
@@ -670,7 +697,10 @@ async function dlGuiDownload(i){
 window.addEventListener('message',e=>{
   if(!e.data)return
   try{
-    if(e.data._wsVideoCaptured&&e.data.url){
+    if(e.data._wsBridgeReply==='list'&&Array.isArray(e.data.items)){
+      e.data.items.forEach(item=>captureMediaItem(item.url,item.type||'VIDEO',item.title||document.title))
+      if(e.data.items.length)dlGuiSetStatus('Loaded '+e.data.items.length+' captured stream(s).')
+    }else if(e.data._wsVideoCaptured&&e.data.url){
       captureMediaItem(e.data.url,e.data.type||'VIDEO',e.data.title||'')
     }else{
       const rawStr=typeof e.data==='string'?e.data:JSON.stringify(e.data);
