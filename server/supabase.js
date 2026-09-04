@@ -120,23 +120,6 @@ async function getEmailForUsername(username) {
     if (data?.user?.email) return data.user.email;
   }
 
-  for (let page = 1; page <= 20; page += 1) {
-    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
-    if (error || !data?.users?.length) break;
-    const user = data.users.find(item => item.user_metadata?.username === username);
-    if (user?.email) {
-      await admin.from('ws_accounts').upsert({
-        username_key: username.toLowerCase(),
-        username,
-        user_id: user.id,
-        session_version: '',
-        reset_pending: false,
-      }, { onConflict: 'username_key' });
-      return user.email;
-    }
-    if (data.users.length < 1000) break;
-  }
-
   return localEmail;
 }
 

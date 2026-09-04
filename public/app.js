@@ -813,7 +813,7 @@ function E(m){return'<div class="error-view"><h2>Something went wrong</h2><p>'+e
 function showAuth(){qs('#auth-modal').style.display='flex'}
 function hideAuth(){qs('#auth-modal').style.display='none'}
 let authMode='signin'
-function cleanAuthError(message){return message==='CORS origin not allowed'?'this site is not allowed by the backend yet. add this domain to CORS_ORIGINS or PUBLIC_URL in Railway.':message}
+function cleanAuthError(message){if(message==='CORS origin not allowed')return'this site is not allowed by the backend yet. add this domain to CORS_ORIGINS or PUBLIC_URL in Railway.';if(message==='signal timed out')return'sign in timed out. the backend did not answer fast enough.';return message}
 async function doAuth(){
   const err=qs('#authError')
   if(err){err.style.color='#f87171';err.textContent=''}
