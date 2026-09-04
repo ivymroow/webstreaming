@@ -830,7 +830,7 @@ async function doAuth(){
     if(r.needs2fa){
       qs('#authError').style.color='#4ade80';
       if(r.method==='email'){
-        qs('#authError').textContent='Sending a verification code to your email. Enter it below:';
+        qs('#authError').textContent='Verification code sent to your email. Enter it below:';
         if(qs('#auth2faLabel'))qs('#auth2faLabel').textContent='Email Verification Code';
       }else{
         qs('#authError').textContent='Enter 6-digit code from authenticator app:';

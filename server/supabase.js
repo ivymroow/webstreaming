@@ -123,9 +123,7 @@ async function finishSignIn(user, safeUsername, token) {
   // Email 2FA
   if (md.email_2fa_enabled === true) {
     if (!token) {
-      sendEmailOTP(user.id).catch(error => {
-        console.error('Email 2FA delivery failed:', error?.message || error);
-      });
+      await sendEmailOTP(user.id);
       return { needs2fa: true, method: 'email' };
     }
     await verifyEmailOTP(user.id, token);
@@ -435,18 +433,21 @@ async function disable2fa(userId, token) {
   return true;
 }
 
-function createMailer() {
-  const nodemailer = require('nodemailer');
-  if (!env.smtpHost || !env.smtpUser) throw authError('SMTP is not configured. Set SMTP_HOST, SMTP_USER, SMTP_PASS in environment variables.');
-  return nodemailer.createTransport({
-    host: env.smtpHost,
-    port: env.smtpPort,
-    secure: env.smtpPort === 465,
-    auth: { user: env.smtpUser, pass: env.smtpPass },
-    connectionTimeout: 8000,
-    greetingTimeout: 8000,
-    socketTimeout: 12000,
+async function sendTransactionalEmail(message) {
+  if (!env.resendApiKey) throw authError('RESEND_API_KEY or SMTP_PASS is not configured');
+  if (!env.smtpFrom) throw authError('SMTP_FROM is not configured');
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${env.resendApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(message),
+    signal: AbortSignal.timeout(10000),
   });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw authError(result.message || `Email delivery failed (${response.status})`);
+  return result;
 }
 
 async function setup2faEmail(userId) {
@@ -494,10 +495,9 @@ async function sendEmailOTP(userId) {
   await admin.auth.admin.updateUserById(userId, {
     user_metadata: { ...account.user_metadata, email_otp_code: code, email_otp_expires: expires },
   });
-  const mailer = createMailer();
-  await mailer.sendMail({
+  await sendTransactionalEmail({
     from: env.smtpFrom || env.smtpUser,
-    to: account.email,
+    to: [account.email],
     subject: 'Your WebStreaming 2FA code',
     text: `Your sign-in code is: ${code}\n\nThis code expires in 10 minutes. If you did not request this, ignore this email.`,
     html: `<div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:24px;background:#09070d;color:#f8f3ff;border-radius:12px">

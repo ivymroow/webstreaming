@@ -79,6 +79,7 @@ const env = {
   smtpUser: optionalEnv('SMTP_USER'),
   smtpPass: optionalEnv('SMTP_PASS'),
   smtpFrom: optionalEnv('SMTP_FROM') || optionalEnv('SMTP_USER'),
+  resendApiKey: optionalEnv('RESEND_API_KEY') || optionalEnv('SMTP_PASS'),
 };
 
 module.exports = env;
