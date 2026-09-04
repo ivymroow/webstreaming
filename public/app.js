@@ -915,6 +915,42 @@ async function sendPasswordReset(){
     if(err)err.textContent=cleanAuthError(e.message)
   }
 }
+async function exportAccountBackup(){
+  const err=qs('#accountError'),st=qs('#accountStatus')
+  if(err)err.textContent=''
+  if(st)st.textContent='creating backup...'
+  try{
+    const backup=await api('GET','/api/auth/account/export')
+    const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'})
+    const a=document.createElement('a')
+    a.href=URL.createObjectURL(blob)
+    a.download='web-streaming-account-backup.json'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    setTimeout(()=>URL.revokeObjectURL(a.href),1000)
+    if(st)st.textContent='backup downloaded'
+  }catch(e){
+    if(st)st.textContent=''
+    if(err)err.textContent=cleanAuthError(e.message)
+  }
+}
+async function importAccountBackup(){
+  const file=qs('#accountBackupFile')?.files?.[0]
+  const err=qs('#accountError'),st=qs('#accountStatus')
+  if(err)err.textContent=''
+  if(st)st.textContent=''
+  if(!file){if(err)err.textContent='choose a backup json file';return}
+  try{
+    if(st)st.textContent='importing backup...'
+    const backup=JSON.parse(await file.text())
+    const r=await api('POST','/api/auth/account/import',{backup})
+    if(st)st.textContent='imported '+(r.importedProgress||0)+' history items and '+(r.importedWatchlist||0)+' watchlist items'
+  }catch(e){
+    if(st)st.textContent=''
+    if(err)err.textContent=cleanAuthError(e.message||'backup import failed')
+  }
+}
 async function sendSignedOutPasswordReset(){
   const email=qs('#signedOutResetEmail')?.value.trim()
   const err=qs('#signedOutResetError'),st=qs('#signedOutResetStatus')

@@ -120,6 +120,19 @@ router.post('/account/delete', requireBody('confirmation'), asyncHandler(async (
   res.json({ ok: true });
 }));
 
+router.get('/account/export', asyncHandler(async (req, res) => {
+  const user = await requireUser(req, res);
+  if (!user) return;
+  res.json(await supabase.exportAccountData(user.id));
+}));
+
+router.post('/account/import', requireBody('backup'), asyncHandler(async (req, res) => {
+  const user = await requireUser(req, res);
+  if (!user) return;
+  const result = await supabase.importAccountData(user.id, req.body.backup);
+  res.json({ ok: true, ...result });
+}));
+
 router.post('/signout', (req, res) => {
   sessions.clear(res);
   res.json({ ok: true });

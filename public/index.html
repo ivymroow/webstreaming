@@ -97,6 +97,13 @@
           <p style="color:#4ade80;font-size:13px" id="accountStatus"></p>
           <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:12px" onclick="saveAccountEmail()">save email</button>
           <button class="btn btn-secondary" style="width:100%;justify-content:center;margin-top:10px" onclick="sendPasswordReset()">send password reset email</button>
+          <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px">
+            <label>Backup account data</label>
+            <p class="hint" style="color:var(--text-muted)">Export or import watch history and watchlist data.</p>
+            <button class="btn btn-secondary" style="width:100%;justify-content:center;margin-top:8px" onclick="exportAccountBackup()">download backup</button>
+            <input type="file" id="accountBackupFile" accept="application/json" class="modal-input" style="margin-top:8px">
+            <button class="btn btn-secondary" style="width:100%;justify-content:center;margin-top:8px" onclick="importAccountBackup()">import backup</button>
+          </div>
           <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px" id="account2faSection">
             <label>Two-Factor Authentication</label>
             <p class="hint" style="color:var(--text-muted)" id="account2faStatus">Loading 2FA status...</p>
@@ -152,7 +159,7 @@
     </div>
   </div>
 
-  <script src="app.js?v=32"></script>
+  <script src="app.js?v=33"></script>
 </body>
 </html>
 

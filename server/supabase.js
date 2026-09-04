@@ -21,9 +21,26 @@ function authError(message) {
 function userPayload(user, fallbackUsername) {
   return {
     id: user.id,
-    username: user.user_metadata?.username || fallbackUsername || user.email,
+    username: user.user_metadata?.username || user.user_metadata?.display_name || fallbackUsername || user.email,
     email: user.email,
   };
+}
+
+function displayNameMetadata(username, metadata = {}) {
+  return {
+    ...metadata,
+    username,
+    display_name: username,
+    name: username,
+    full_name: username,
+  };
+}
+
+async function updateDisplayName(userId, username, metadata = {}) {
+  if (!env.supabaseServiceRoleKey || !userId || !username) return;
+  await admin.auth.admin.updateUserById(userId, {
+    user_metadata: displayNameMetadata(username, metadata),
+  });
 }
 
 function passwordResetRedirectUrl() {
@@ -43,9 +60,10 @@ async function signUp(username, password, email) {
   const usernameKey = safeUsername.toLowerCase();
   const safeEmail = cleanString(email, 320);
   const userEmail = safeEmail || `${usernameKey}@ws.local`;
-  const { data, error } = await sb.auth.signUp({ email: userEmail, password, options: { data: { username: safeUsername } } });
+  const { data, error } = await sb.auth.signUp({ email: userEmail, password, options: { data: displayNameMetadata(safeUsername) } });
   if (error) throw authError(error.message);
   if (env.supabaseServiceRoleKey && data?.user?.id) {
+    updateDisplayName(data.user.id, safeUsername, data.user.user_metadata).catch(() => {});
     await admin.from('ws_accounts').upsert({
       username_key: usernameKey,
       username: safeUsername,
@@ -79,6 +97,7 @@ async function signIn(username, password, token) {
   }
   if (result.error) throw authError(result.error.message);
   if (env.supabaseServiceRoleKey && result.data?.user?.id) {
+    updateDisplayName(result.data.user.id, safeUsername, result.data.user.user_metadata).catch(() => {});
     await admin.from('ws_accounts').upsert({
       username_key: usernameKey,
       username: safeUsername,
@@ -149,7 +168,7 @@ async function getAccount(userId) {
   const user = data.user;
   return {
     id: user.id,
-    username: user.user_metadata?.username || user.email,
+    username: user.user_metadata?.username || user.user_metadata?.display_name || user.email,
     email: user.email || '',
     needsEmail: (user.email || '').endsWith('@ws.local'),
     totp_enabled: !!user.user_metadata?.totp_enabled,
@@ -165,7 +184,8 @@ async function updateEmail(userId, email) {
   const { data, error } = await admin.auth.admin.updateUserById(userId, { email: safeEmail });
   if (error) throw authError(error.message);
   const user = data.user;
-  const username = user.user_metadata?.username || user.email;
+  const username = user.user_metadata?.username || user.user_metadata?.display_name || user.email;
+  await updateDisplayName(user.id, username, user.user_metadata);
   if (username) {
     await admin.from('ws_accounts').upsert({
       username_key: username.toLowerCase(),
@@ -205,6 +225,54 @@ async function deleteAccount(userId) {
   await admin.from('ws_accounts').delete().eq('user_id', userId);
   const { error } = await admin.auth.admin.deleteUser(userId);
   if (error) throw authError(error.message);
+}
+
+async function exportAccountData(userId) {
+  const c = getClient();
+  const progress = await c.from('watch_progress').select('*').eq('user_id', userId).order('updated_at', { ascending: false });
+  if (progress.error) throw new Error(progress.error.message);
+  const watchlist = await c.from('watchlist').select('*').eq('user_id', userId).order('added_at', { ascending: false });
+  if (watchlist.error) throw new Error(watchlist.error.message);
+  return {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    watch_progress: (progress.data || []).map(({ user_id, id, ...item }) => item),
+    watchlist: (watchlist.data || []).map(({ user_id, id, ...item }) => item),
+  };
+}
+
+async function importAccountData(userId, backup = {}) {
+  const progress = Array.isArray(backup.watch_progress) ? backup.watch_progress.slice(0, 1000) : [];
+  const watchlist = Array.isArray(backup.watchlist) ? backup.watchlist.slice(0, 1000) : [];
+  let importedProgress = 0;
+  let importedWatchlist = 0;
+
+  for (const item of progress) {
+    await saveProgress(userId, {
+      id: item.item_id || item.id,
+      title: item.title || '',
+      poster: item.poster || '',
+      type: item.type || 'movie',
+      season: item.season || 0,
+      episode: item.episode || 0,
+      duration: item.duration || 0,
+      watched: item.watched || 0,
+      status: item.status || 'watching',
+    });
+    importedProgress += 1;
+  }
+
+  for (const item of watchlist) {
+    await addToWatchlist(userId, {
+      id: item.item_id || item.id,
+      title: item.title || '',
+      poster: item.poster || '',
+      type: item.type || 'movie',
+    });
+    importedWatchlist += 1;
+  }
+
+  return { importedProgress, importedWatchlist };
 }
 
 async function updatePasswordFromReset({ accessToken, refreshToken, code, password }) {
@@ -451,4 +519,4 @@ async function verifyEmailOTP(userId, code) {
   return true;
 }
 
-module.exports = { signUp, signIn, setSession, getAccount, updateEmail, sendPasswordReset, sendPasswordResetToEmail, updatePasswordFromReset, deleteAccount, setup2fa, verify2faSetup, disable2fa, setup2faEmail, disable2faEmail, sendEmailOTP, verifyEmailOTP, getClient, saveProgress, getProgress, listProgress, addToWatchlist, removeFromWatchlist, getWatchlist, isInWatchlist };
+module.exports = { signUp, signIn, setSession, getAccount, updateEmail, sendPasswordReset, sendPasswordResetToEmail, updatePasswordFromReset, deleteAccount, exportAccountData, importAccountData, setup2fa, verify2faSetup, disable2fa, setup2faEmail, disable2faEmail, sendEmailOTP, verifyEmailOTP, getClient, saveProgress, getProgress, listProgress, addToWatchlist, removeFromWatchlist, getWatchlist, isInWatchlist };
