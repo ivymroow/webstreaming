@@ -19,6 +19,12 @@ router.post('/signin', requireBody('username'), requireBody('password'), asyncHa
   res.json({ ok: true, user: result.user });
 }));
 
+router.post('/session', requireBody('accessToken'), requireBody('refreshToken'), asyncHandler(async (req, res) => {
+  const result = await supabase.setSession(req.body.accessToken, req.body.refreshToken);
+  sessions.create(res, result.user);
+  res.json({ ok: true, user: result.user });
+}));
+
 router.get('/user', asyncHandler(async (req, res) => {
   const user = await requireUser(req, res);
   if (!user) return;
@@ -46,10 +52,27 @@ router.post('/password-reset', asyncHandler(async (req, res) => {
   res.json({ ok: true });
 }));
 
+router.post('/password-reset-email', requireBody('email'), asyncHandler(async (req, res) => {
+  await supabase.sendPasswordResetToEmail(req.body.email);
+  res.json({ ok: true });
+}));
+
 router.post('/password/update', requireBody('password'), asyncHandler(async (req, res) => {
   const result = await supabase.updatePasswordFromReset(req.body);
   sessions.create(res, result.user);
   res.json({ ok: true, user: result.user });
+}));
+
+router.post('/account/delete', requireBody('confirmation'), asyncHandler(async (req, res) => {
+  const user = await requireUser(req, res);
+  if (!user) return;
+  if (req.body.confirmation !== 'DELETE MY ACCOUNT') {
+    res.status(400).json({ error: 'Type DELETE MY ACCOUNT to confirm' });
+    return;
+  }
+  await supabase.deleteAccount(user.id);
+  sessions.clear(res);
+  res.json({ ok: true });
 }));
 
 router.post('/signout', (req, res) => {

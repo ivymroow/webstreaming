@@ -64,8 +64,14 @@
           <label>Password</label>
           <input type="password" id="authPassword" class="modal-input" placeholder="Password" autocomplete="new-password" name="auth-pass">
           <p style="color:#f87171;font-size:13px" id="authError"></p>
-          <p class="hint" style="color:var(--text-muted)">use a real email on signup if you want password resets.</p>
           <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:12px" onclick="doAuth()">continue</button>
+          <div id="signedOutReset" style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
+            <label>Locked out?</label>
+            <input type="email" id="signedOutResetEmail" class="modal-input" placeholder="email for password reset" autocomplete="email">
+            <p style="color:#f87171;font-size:13px" id="signedOutResetError"></p>
+            <p style="color:#4ade80;font-size:13px" id="signedOutResetStatus"></p>
+            <button class="btn btn-secondary" style="width:100%;justify-content:center;margin-top:8px" onclick="sendSignedOutPasswordReset()">send reset email</button>
+          </div>
           <p style="text-align:center;margin-top:12px;font-size:13px;color:var(--text-muted)" id="authToggle">don't have an account? <a href="#" onclick="toggleAuthMode();return false" style="color:var(--primary)">sign up</a></p>
         </div>
       </div>
@@ -87,6 +93,17 @@
           <p style="color:#4ade80;font-size:13px" id="accountStatus"></p>
           <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:12px" onclick="saveAccountEmail()">save email</button>
           <button class="btn btn-secondary" style="width:100%;justify-content:center;margin-top:10px" onclick="sendPasswordReset()">send password reset email</button>
+          <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px">
+            <label>2FA</label>
+            <p class="hint" style="color:var(--text-muted)">2FA needs Supabase MFA enrollment before it can be securely turned on here.</p>
+            <button class="btn btn-secondary" style="width:100%;justify-content:center;margin-top:8px" onclick="showTwoFactorInfo()">2FA setup info</button>
+          </div>
+          <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px">
+            <label>Delete account</label>
+            <p class="hint" style="color:var(--text-muted)">This permanently deletes your account, watchlist, and watch history.</p>
+            <input type="text" id="deleteAccountConfirm" class="modal-input" placeholder="type DELETE MY ACCOUNT">
+            <button class="btn btn-secondary" style="width:100%;justify-content:center;margin-top:8px;color:#f87171;border-color:#7f1d1d" onclick="deleteMyAccount()">delete all account data</button>
+          </div>
         </div>
       </div>
     </div>
@@ -110,6 +127,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=24"></script>
+  <script src="app.js?v=25"></script>
 </body>
 </html>

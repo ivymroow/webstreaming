@@ -58,6 +58,15 @@ async function signIn(username, password) {
   return { user: userPayload(data.user, safeUsername) };
 }
 
+async function setSession(accessToken, refreshToken) {
+  const { data, error } = await sb.auth.setSession({
+    access_token: cleanString(accessToken, 4096),
+    refresh_token: cleanString(refreshToken, 4096),
+  });
+  if (error) throw authError(error.message);
+  return { user: userPayload(data.user) };
+}
+
 async function getEmailForUsername(username) {
   if (username.includes('@')) return username;
   const localEmail = `${username}@ws.local`;
@@ -100,9 +109,24 @@ async function updateEmail(userId, email) {
 async function sendPasswordReset(userId) {
   const account = await getAccount(userId);
   if (!account.email || account.needsEmail) throw authError('Set a real email before requesting a password reset');
-  const { error } = await sb.auth.resetPasswordForEmail(account.email, {
+  await sendPasswordResetToEmail(account.email);
+}
+
+async function sendPasswordResetToEmail(email) {
+  const safeEmail = cleanString(email, 320).toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(safeEmail)) throw authError('Enter a valid email');
+  const { error } = await sb.auth.resetPasswordForEmail(safeEmail, {
     redirectTo: passwordResetRedirectUrl(),
   });
+  if (error) throw authError(error.message);
+}
+
+async function deleteAccount(userId) {
+  if (!env.supabaseServiceRoleKey) throw authError('Account deletion requires SUPABASE_SERVICE_ROLE_KEY');
+  await admin.from('watch_progress').delete().eq('user_id', userId);
+  await admin.from('watchlist').delete().eq('user_id', userId);
+  await admin.from('ws_accounts').delete().eq('user_id', userId);
+  const { error } = await admin.auth.admin.deleteUser(userId);
   if (error) throw authError(error.message);
 }
 
@@ -210,4 +234,4 @@ async function isInWatchlist(userId, itemId) {
   return !!data;
 }
 
-module.exports = { signUp, signIn, getAccount, updateEmail, sendPasswordReset, updatePasswordFromReset, getClient, saveProgress, getProgress, listProgress, addToWatchlist, removeFromWatchlist, getWatchlist, isInWatchlist };
+module.exports = { signUp, signIn, setSession, getAccount, updateEmail, sendPasswordReset, sendPasswordResetToEmail, updatePasswordFromReset, deleteAccount, getClient, saveProgress, getProgress, listProgress, addToWatchlist, removeFromWatchlist, getWatchlist, isInWatchlist };

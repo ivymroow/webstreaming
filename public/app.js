@@ -186,13 +186,15 @@ async function loadEpisodeSources(id,season,episode){
   list.innerHTML=srcs.map(src=>{const eu=',\''+jesc(src.embedUrl)+'\'';return'<div class="source-item" id="src-'+src.hash+'"><div class="source-info"><span class="source-quality">HD</span><span style="color:var(--text-muted);font-size:11px">'+(src.provider||'')+'</span></div><button class="source-play" style="background:var(--primary);color:#fff" onclick="playSource(\''+src.hash+'\',0,\''+jesc(title)+' '+q+'\''+eu+')">▶ Play</button></div>'}).join('')
   if(state.data?._playHash){const ph=state.data._playHash;state.data._playHash=null;setTimeout(()=>{const b=qs('#src-'+ph+' .source-play');if(b)b.click()},100)}
 }function RD(d,srces,episodes){
-  const t=d.title||'Unknown',y=d.year||'',rt=d.runtime?Math.floor(d.runtime/60)+'h '+d.runtime%60+'m':'',r=d.rating?d.rating.toFixed(1):'',o=d.overview||'No overview available.',g=d.genres||[],c=d.cast&&d.cast.length?d.cast.join(', '):'',isTv=episodes&&episodes.length>0 && !d.unreleased
+  const t=d.title||'Unknown',y=d.year||'',rt=d.runtime?Math.floor(d.runtime/60)+'h '+d.runtime%60+'m':'',r=d.rating?d.rating.toFixed(1):'',o=d.overview||'No overview available.',g=d.genres||[],c=d.cast&&d.cast.length?d.cast.join(', '):'',isTv=episodes&&episodes.length>0 && !d.unreleased && !d.unavailable
   document.title=t+' - webstreaming'
   const posterUrl=d.poster||''
   let wlBtn=''
   if(state.user){wlBtn='<button class="wl-btn" id="wlBtn" onclick="toggleWatchlist()">Loading...</button>';setTimeout(async()=>{try{const r=await api('GET','/api/watchlist/check?id='+d.id);const b=qs('#wlBtn');if(b){b.textContent=r.inList?'✓ In Watchlist':'+ Watchlist';b.className='wl-btn'+(r.inList?' in-list':'')}}catch{}},50)}
   let epHTML=''
-  if(d.unreleased){
+  if(d.unavailable){
+    epHTML='<div class="unreleased-warning" style="padding:16px;background:rgba(239,68,68,0.1);border:1px solid #ef4444;border-radius:var(--radius);color:#fca5a5;margin-top:16px;font-size:14px;line-height:1.5"><strong>Unavailable:</strong> '+esc(d.unavailableMessage||'This title is currently unavailable due to a streaming provider catalog mismatch. Please try again later.')+'</div>'
+  }else if(d.unreleased){
     epHTML='<div class="unreleased-warning" style="padding:16px;background:rgba(245,158,11,0.1);border:1px solid #f59e0b;border-radius:var(--radius);color:#fbbf24;margin-top:16px;font-size:14px;line-height:1.5"><strong>Not Yet Released:</strong> This title is scheduled to be released on '+esc(d.releaseDate||'a future date')+'. Streaming sources will be available after the release.</div>'
   }else if(isTv){
     if(state.data?.season!=null&&state.data?.episode!=null){selectedSeason=state.data.season;selectedEpisode=state.data.episode;state.data.season=null;state.data.episode=null}
@@ -200,11 +202,11 @@ async function loadEpisodeSources(id,season,episode){
     window._eps=episodes
     epHTML='<div class="episode-picker"><div class="sources-title">Select Episode</div><div class="episode-controls"><select id="seasonSelect">'+episodes.map(s=>'<option value="'+s.season+'">Season '+s.season+' ('+s.episodes.length+' eps)</option>').join('')+'</select><select id="episodeSelect"></select></div><div id="episodeInfo" class="episode-info"></div><div class="sources-section" style="margin-top:12px"><div class="sources-title">Sources</div><div class="sources-list" id="sl"><div class="loading-screen" style="padding:12px"><div class="spinner"></div></div></div></div></div>'
   }
-  qs('#dL').outerHTML='<div class="detail-hero"><div class="detail-poster">'+(posterUrl?'<img src="'+posterUrl+'" alt="'+esc(t)+'" loading="lazy" referrerpolicy="no-referrer" onerror="this.src=\'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 200 300%22><rect fill=%22%231a1a1a%22 width=%22200%22 height=%22300%22/><text x=%22100%22 y=%22160%22 text-anchor=%22middle%22 font-size=%2248%22 fill=%22%23555%22>🎬</text></svg>\'">':'<div class="card-placeholder" style="aspect-ratio:2/3">🎬</div>')+'</div><div class="detail-info"><h1 class="detail-title">'+esc(t)+'</h1><div class="detail-meta">'+(y?'<span>'+y+'</span>':'')+(rt?'<span>'+rt+'</span>':'')+'</div><div class="detail-genres">'+g.map(x=>'<span>'+x+'</span>').join('')+'</div>'+(r?'<div class="detail-rating"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg> '+r+'/10</div>':'')+(wlBtn?'<div style="margin-bottom:16px">'+wlBtn+'</div>':'')+'<p class="detail-overview">'+esc(o)+'</p>'+(c?'<p class="detail-cast"><strong>Cast:</strong> '+esc(c)+'</p>':'')+epHTML+(isTv||d.unreleased?'':'<div class="sources-section"><div class="sources-title">Sources</div><div class="sources-list" id="sl"></div></div>')+'</div></div>'
+  qs('#dL').outerHTML='<div class="detail-hero"><div class="detail-poster">'+(posterUrl?'<img src="'+posterUrl+'" alt="'+esc(t)+'" loading="lazy" referrerpolicy="no-referrer" onerror="this.src=\'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 200 300%22><rect fill=%22%231a1a1a%22 width=%22200%22 height=%22300%22/><text x=%22100%22 y=%22160%22 text-anchor=%22middle%22 font-size=%2248%22 fill=%22%23555%22>🎬</text></svg>\'">':'<div class="card-placeholder" style="aspect-ratio:2/3">🎬</div>')+'</div><div class="detail-info"><h1 class="detail-title">'+esc(t)+'</h1><div class="detail-meta">'+(y?'<span>'+y+'</span>':'')+(rt?'<span>'+rt+'</span>':'')+'</div><div class="detail-genres">'+g.map(x=>'<span>'+x+'</span>').join('')+'</div>'+(r?'<div class="detail-rating"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg> '+r+'/10</div>':'')+(wlBtn?'<div style="margin-bottom:16px">'+wlBtn+'</div>':'')+'<p class="detail-overview">'+esc(o)+'</p>'+(c?'<p class="detail-cast"><strong>Cast:</strong> '+esc(c)+'</p>':'')+epHTML+(isTv||d.unreleased||d.unavailable?'':'<div class="sources-section"><div class="sources-title">Sources</div><div class="sources-list" id="sl"></div></div>')+'</div></div>'
 
   if(isTv){
     const ie=()=>{const ss=qs('#seasonSelect');if(!ss){setTimeout(ie,100);return};ss.value=selectedSeason;ss.onchange=function(){fillEpisodes(true)};fillEpisodes()};setTimeout(ie,50)
-  }else if(!d.unreleased){
+  }else if(!d.unreleased && !d.unavailable){
     const list=qs('#sl')
     if(!srces||!srces.length){if(list)list.innerHTML='<p style="color:var(--text-muted);font-size:14px;padding:8px 0">No sources found.</p>';return}
     state._sources=srces
@@ -475,6 +477,43 @@ async function sendPasswordReset(){
     if(err)err.textContent=cleanAuthError(e.message)
   }
 }
+async function sendSignedOutPasswordReset(){
+  const email=qs('#signedOutResetEmail')?.value.trim()
+  const err=qs('#signedOutResetError'),st=qs('#signedOutResetStatus')
+  if(err)err.textContent=''
+  if(st)st.textContent=''
+  if(!email){if(err)err.textContent='enter an email';return}
+  if(st)st.textContent='sending reset email...'
+  try{
+    await api('POST','/api/auth/password-reset-email',{email})
+    if(st)st.textContent='password reset email sent'
+  }catch(e){
+    if(st)st.textContent=''
+    if(err)err.textContent=cleanAuthError(e.message)
+  }
+}
+async function deleteMyAccount(){
+  const confirm=qs('#deleteAccountConfirm')?.value
+  const err=qs('#accountError'),st=qs('#accountStatus')
+  if(err)err.textContent=''
+  if(st)st.textContent=''
+  if(confirm!=='DELETE MY ACCOUNT'){if(err)err.textContent='Type DELETE MY ACCOUNT to confirm';return}
+  if(st)st.textContent='Deleting account...'
+  try{
+    await api('POST','/api/auth/account/delete',{confirmation:confirm})
+    hideAccountSettings()
+    state.user=null
+    state.view='welcome'
+    render()
+  }catch(e){
+    if(st)st.textContent=''
+    if(err)err.textContent=cleanAuthError(e.message)
+  }
+}
+function showTwoFactorInfo(){
+  alert('2FA is coming soon! This will require an authenticator app.')
+}
+
 
 function readPasswordResetParams(){
   const query=new URLSearchParams(window.location.search)
@@ -485,7 +524,7 @@ function readPasswordResetParams(){
   const accessToken=hash.get('access_token')||query.get('access_token')
   const refreshTokenValue=hash.get('refresh_token')||query.get('refresh_token')
   const isResetPath=window.location.pathname==='/reset-password'
-  if(type==='recovery'||isResetPath||code||accessToken)return{code,accessToken,refreshToken:refreshTokenValue}
+  if(type==='recovery'||isResetPath||code||accessToken)return{type:type||'recovery',code,accessToken,refreshToken:refreshTokenValue}
   return null
 }
 function showPasswordReset(params){
@@ -549,7 +588,7 @@ async function addWatchlistFromProfile(id,title,poster,type){
 function restoreFromHash(){const hash=window.location.hash.slice(1);if(!hash||hash==='/'||hash==='')return;if(hash==='profile'){state.view='profile';return};if(hash==='notice'){state.view='notice';return};const params=new URLSearchParams(hash);if(params.has('q')){state.query=params.get('q');state.view='search'}else if(params.has('id')){state.view='detail';const type=params.get('type')||(params.has('s')?'tv':'movie');const se=parseInt(params.get('s')),ep=parseInt(params.get('e'));if(!isNaN(se)&&!isNaN(ep)&&type==='tv'){selectedSeason=se;selectedEpisode=ep};state.data={id:params.get('id'),type,title:params.get('t')||'',year:params.get('y')||'',season:type==='tv'?(isNaN(se)?null:se):null,episode:type==='tv'?(isNaN(ep)?null:ep):null,_playHash:params.get('hash')||null}}else state.view='home'}
 
 async function init(){
-  try{await detect();if(state.mode==='backend'){try{const u=await api('GET','/api/auth/user');state.user=u}catch{}};if(state.mode==='standalone'&&!navigator.onLine){qs('#app').innerHTML='<div class="loading-screen"><h2>No backend</h2><p>Connect to the internet or configure a backend URL.</p></div>';return};const recovery=readPasswordResetParams();if(recovery){state.view='welcome';render();showPasswordReset(recovery);return};const p=window.location.pathname;const h=window.location.hash;if(h&&h.length>2){restoreFromHash();render()}else if(p==='/'){state.view=state.user?'home':'welcome';render()}else if(p==='/profile'){state.view='profile';render()}else if(p==='/notice'){state.view='notice';render()}else if(p==='/socials'){state.view='socials';render()}else{state.view='welcome';render()}return}catch(e){console.error('Init:',e);qs('#main').innerHTML='<div class="error-view"><h2>Failed to load</h2><p>'+esc(e.message||'Unknown error')+'</p><button class="btn btn-primary" onclick="location.reload()">Retry</button></div>'}
+  try{await detect();if(state.mode==='backend'){try{const u=await api('GET','/api/auth/user');state.user=u}catch{}};if(state.mode==='standalone'&&!navigator.onLine){qs('#app').innerHTML='<div class="loading-screen"><h2>No backend</h2><p>Connect to the internet or configure a backend URL.</p></div>';return};const recovery=readPasswordResetParams();if(recovery){if(recovery.type==='signup'){try{const r=await api('POST','/api/auth/session',{accessToken:recovery.accessToken,refreshToken:recovery.refreshToken});state.user=r.user;window.history.replaceState(null,'','/')}catch(e){console.error('Session error:',e)}}else{state.view='welcome';render();showPasswordReset(recovery);return}};const p=window.location.pathname;const h=window.location.hash;if(h&&h.length>2){restoreFromHash();render()}else if(p==='/'){state.view=state.user?'home':'welcome';render()}else if(p==='/profile'){state.view='profile';render()}else if(p==='/notice'){state.view='notice';render()}else if(p==='/socials'){state.view='socials';render()}else{state.view='welcome';render()}return}catch(e){console.error('Init:',e);qs('#main').innerHTML='<div class="error-view"><h2>Failed to load</h2><p>'+esc(e.message||'Unknown error')+'</p><button class="btn btn-primary" onclick="location.reload()">Retry</button></div>'}
 }
 
 // Scroll effect on header
