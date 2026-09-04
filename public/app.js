@@ -297,7 +297,7 @@ function ifr(url,title){
   const cur=eps.find(s=>s.season===selectedSeason)
   const epOpts=cur?cur.episodes.map(e=>'<option value="'+e.number+'"'+(e.number===selectedEpisode?' selected':'')+'>'+e.number+'. '+esc(e.name)+'</option>').join(''):''
   const drops=eps.length?'<select id="pvSeason" onchange="pvFillEpisodes()">'+seasonOpts+'</select><select id="pvEpisode" onchange="pvPlay()">'+epOpts+'</select>':''
-  const dlBtn='<button class="btn btn-secondary" onclick="toggleDownloadGUI()" style="padding:4px 10px;font-size:12px;display:flex;align-items:center;gap:5px"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download</button>'
+  const dlBtn='<button class="btn btn-secondary" onclick="toggleDownloadGUI()" style="padding:4px 10px;font-size:12px;display:flex;align-items:center;gap:5px"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download GUI</button>'
   return'<div class="player-container"><div class="player-toolbar"><button class="detail-back" onclick="cp()"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>back</button>'+drops+dlBtn+'</div><div class="player-wrapper"><iframe id="playerIframe" src="'+u+'" allow="autoplay;encrypted-media;fullscreen" allowfullscreen referrerpolicy="no-referrer" style="position:absolute;inset:0;width:100%;height:100%;border:none;background:#000"></iframe></div></div>'
 }
 
@@ -489,41 +489,91 @@ try{
   };
 }catch{}
 
+function dlGuiAddManual(){
+  const inp=qs('#dlGuiManualUrl');if(!inp)return;
+  const val=inp.value.trim();if(!val)return;
+  captureMediaItem(val,/\.m3u8/i.test(val)?"HLS":"VIDEO","Manual Link");
+  inp.value="";
+  dlGuiSetStatus("Added link. Click Download MP4 below.");
+}
+
+function dlGuiPoll(){
+  try{
+    performance.getEntriesByType?.("resource").forEach(e=>{
+      if(/\.(mp4|webm|mov|m4v|m3u8)(?:$|[?#])|\.m3u8/i.test(e.name)){
+        captureMediaItem(e.name,/\.m3u8/i.test(e.name)?"HLS":"VIDEO");
+      }
+    });
+    document.querySelectorAll("video, source").forEach(el=>{
+      if(el.src)captureMediaItem(el.src,/\.m3u8/i.test(el.src)?"HLS":"VIDEO");
+      if(el.currentSrc)captureMediaItem(el.currentSrc,/\.m3u8/i.test(el.currentSrc)?"HLS":"VIDEO");
+    });
+  }catch{}
+}
+
+// Hook fetch and XMLHttpRequest to detect any stream requests directly in page
+try{
+  const origFetch=window.fetch;
+  window.fetch=function(...args){
+    try{
+      const u=typeof args[0]==='string'?args[0]:(args[0]?.url||'');
+      if(/\.(mp4|webm|mov|m4v|m3u8)(?:$|[?#])|\.m3u8/i.test(u)){
+        captureMediaItem(u,/\.m3u8/i.test(u)?"HLS":"VIDEO");
+      }
+    }catch{}
+    return origFetch.apply(this,args);
+  };
+  const origOpen=XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open=function(method,url,...rest){
+    try{
+      if(typeof url==='string'&&(/\.(mp4|webm|mov|m4v|m3u8)(?:$|[?#])|\.m3u8/i.test(url))){
+        captureMediaItem(url,/\.m3u8/i.test(url)?"HLS":"VIDEO");
+      }
+    }catch{}
+    return origOpen.call(this,method,url,...rest);
+  };
+}catch{}
+
 function toggleDownloadGUI(){
   let panel=qs('#dl-gui-panel')
   if(panel){
-    if(window._dlGuiPollTimer){clearInterval(window._dlGuiPollTimer);window._dlGuiPollTimer=null}
     panel.remove();
     return
   }
   panel=document.createElement('div')
   panel.id='dl-gui-panel'
-  panel.style.cssText='position:fixed;bottom:70px;right:16px;z-index:9999;width:380px;background:radial-gradient(circle at 50% -20%,#32164f,transparent 45%),#09070d;color:#f8f3ff;font:13px Inter,Arial,sans-serif;border:1px solid #30233d;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.6);overflow:hidden'
+  panel.style.cssText='position:fixed;bottom:70px;right:16px;z-index:9999;width:400px;max-width:calc(100vw - 32px);background:radial-gradient(circle at 50% -20%,#281340,transparent 50%),#0b0812;color:#f8f3ff;font:13px Inter,system-ui,sans-serif;border:1px solid #38254c;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,0.75);overflow:hidden;backdrop-filter:blur(16px)'
+  
+  const title=state.data?.title||state._title||'Media'
+  const epInfo=(state.data?.type==='tv'||selectedSeason)?` · Season ${selectedSeason} Episode ${selectedEpisode}`:''
+
   panel.innerHTML=`
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #30233d">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #2d1e3e;background:rgba(20,13,30,0.7)">
       <div>
-        <div style="font-size:15px;font-weight:700;margin-bottom:2px">embed downloader <span style="font-size:10px;color:#a568ff;vertical-align:middle">v1.0</span></div>
-        <div style="color:#a99db5;font-size:11px">developed · by ivymroow</div>
+        <div style="font-size:14px;font-weight:700;display:flex;align-items:center;gap:6px">
+          <span>WebStreaming Downloader</span>
+          <span style="font-size:10px;background:#a568ff;color:#0b0812;font-weight:800;padding:2px 6px;border-radius:4px">NATIVE</span>
+        </div>
+        <div style="color:#a99db5;font-size:11px;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(title + epInfo)}</div>
       </div>
       <div style="display:flex;gap:6px;align-items:center">
-        <button onclick="dlGuiClear()" style="border:1px solid #30233d;background:#20152d;color:#f8f3ff;border-radius:8px;padding:5px 10px;cursor:pointer;font-size:12px">Clear</button>
-        <button onclick="toggleDownloadGUI()" style="border:1px solid #30233d;background:#20152d;color:#f8f3ff;border-radius:8px;padding:5px 8px;cursor:pointer">✕</button>
+        <button onclick="dlGuiClear()" style="border:1px solid #38254c;background:#1a1126;color:#c4b5d4;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px">Clear</button>
+        <button onclick="toggleDownloadGUI()" style="border:1px solid #38254c;background:#1a1126;color:#c4b5d4;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px">✕</button>
       </div>
     </div>
-    <div id="dl-gui-list" style="padding:10px;max-height:360px;overflow-y:auto"></div>
-    <div style="padding:8px 12px;border-top:1px solid #30233d;background:#15101d">
+    <div id="dl-gui-list" style="padding:12px;max-height:380px;overflow-y:auto"></div>
+    <div style="padding:10px 14px;border-top:1px solid #2d1e3e;background:rgba(17,11,26,0.9)">
+      <div style="font-size:11px;color:#a99db5;margin-bottom:6px">Convert any HLS (.m3u8) / video link to MP4:</div>
       <div style="display:flex;gap:6px">
-        <input id="dlGuiManualUrl" placeholder="Paste direct .m3u8 or video link…" style="flex:1;background:#20152d;border:1px solid #30233d;color:#f8f3ff;border-radius:8px;padding:6px 10px;font-size:11px;outline:none">
-        <button onclick="dlGuiAddManual()" style="background:#a568ff;color:#100717;border:0;border-radius:8px;padding:6px 10px;font-weight:700;font-size:11px;cursor:pointer">Convert</button>
+        <input id="dlGuiManualUrl" placeholder="Paste .m3u8 or video stream URL…" style="flex:1;background:#180f24;border:1px solid #38254c;color:#f8f3ff;border-radius:6px;padding:6px 10px;font-size:11px;outline:none">
+        <button onclick="dlGuiAddManual()" style="background:#a568ff;color:#0b0812;border:0;border-radius:6px;padding:6px 12px;font-weight:700;font-size:11px;cursor:pointer">Add Link</button>
       </div>
     </div>
-    <div id="dl-gui-status" style="padding:8px 14px;color:#a99db5;border-top:1px solid #30233d;font-size:11px">monitoring live…</div>
+    <div id="dl-gui-status" style="padding:8px 14px;color:#a99db5;border-top:1px solid #2d1e3e;font-size:11px;background:#0e0917">ready to download</div>
   `
   document.body.appendChild(panel)
   dlGuiPoll()
-  dlGuiRender(window._dlGuiItems||[])
-  if(window._dlGuiPollTimer)clearInterval(window._dlGuiPollTimer)
-  window._dlGuiPollTimer=setInterval(dlGuiPoll,1000)
+  dlGuiRender()
 }
 
 function dlGuiSetStatus(msg,err=false){
@@ -535,54 +585,68 @@ function dlGuiSetStatus(msg,err=false){
 async function dlGuiClear(){
   window._dlGuiItems=[]
   window._dlGuiCurrentItems=[]
-  window.postMessage({_wsBridge:"clear"},"*")
-  dlGuiRender([])
-  dlGuiSetStatus('List cleared.')
+  dlGuiRender()
+  dlGuiSetStatus('Cleared captured streams.')
 }
 
-function dlGuiRender(items){
+function dlGuiRender(){
   const list=qs('#dl-gui-list');if(!list)return
-  const embedUrl=qs('#playerIframe')?.src||state._embedUrl||'';
+  const captured=window._dlGuiItems||[];
+  const sources=state._sources||[];
+  const activeUrl=qs('#playerIframe')?.src||state._embedUrl||'';
   let html='';
 
-  if(items&&items.length){
-    html+=items.map((item,i)=>`
-      <div style="background:linear-gradient(135deg,#171020,#100d15);border:1px solid #30233d;border-radius:10px;padding:10px;margin-bottom:8px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-          <span style="font-size:10px;font-weight:800;color:#160922;background:${item.type==='HLS'?'#f59e0b':'#a568ff'};padding:2px 6px;border-radius:5px">${esc(item.type||'VIDEO')}</span>
-          <strong style="font-size:13px">${item.type==='HLS'?'Live HLS Stream':'Detected Media'}</strong>
+  // Section 1: Captured Streams (if any)
+  if(captured.length){
+    html+=`<div style="font-size:11px;font-weight:700;color:#a568ff;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Captured Media Streams (${captured.length})</div>`;
+    html+=captured.map((item,i)=>`
+      <div style="background:#170f24;border:1px solid #38254c;border-radius:8px;padding:10px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          <span style="font-size:10px;font-weight:800;color:#0b0812;background:${item.type==='HLS'?'#f59e0b':'#4ade80'};padding:2px 6px;border-radius:4px">${esc(item.type||'VIDEO')}</span>
+          <span style="font-size:11px;color:#a99db5">${esc(item.title||'Direct Stream')}</span>
         </div>
-        <div style="color:#cbbfd5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:8px;font-size:11px" title="${esc(item.url||'')}">${esc(item.url||'')}</div>
+        <div style="color:#c4b5d4;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:8px" title="${esc(item.url)}">${esc(item.url)}</div>
         <div style="display:flex;gap:6px">
-          <button onclick="dlGuiDownload(${i})" style="flex:1;background:#a568ff;color:#100717;border:0;font-weight:700;border-radius:8px;padding:7px 10px;cursor:pointer">${item.type==='HLS'?'Download HLS (MP4)':'Download'}</button>
-          <button onclick="dlGuiCopy(${i})" style="border:1px solid #30233d;background:#20152d;color:#f8f3ff;border-radius:8px;padding:7px 10px;cursor:pointer">Copy URL</button>
+          <button onclick="dlGuiDownload(${i})" style="flex:1;background:#a568ff;color:#0b0812;border:0;font-weight:700;border-radius:6px;padding:7px;cursor:pointer;font-size:11px">${item.type==='HLS'?'Download as MP4':'Download Video'}</button>
+          <button onclick="dlGuiCopy(${i})" style="border:1px solid #38254c;background:#201431;color:#f8f3ff;border-radius:6px;padding:7px 10px;cursor:pointer;font-size:11px">Copy Link</button>
         </div>
       </div>
     `).join('');
-    window._dlGuiCurrentItems=items;
-  }else{
-    html+=`
-      <div style="text-align:center;color:#a99db5;padding:18px 12px">
-        <div style="font-size:22px;margin-bottom:6px">📡</div>
-        <div style="font-weight:600;color:#f8f3ff;margin-bottom:4px">Sniffing player streams live…</div>
-        <div style="font-size:11px;color:#a99db5">Play the video below to trigger media requests.</div>
-      </div>
-    `;
-    if(embedUrl){
-      html+=`
-        <div style="background:linear-gradient(135deg,#171020,#100d15);border:1px solid #30233d;border-radius:10px;padding:10px;margin-bottom:8px">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-            <span style="font-size:10px;font-weight:800;color:#160922;background:#38bdf8;padding:2px 6px;border-radius:5px">EMBED</span>
-            <strong style="font-size:12px">Active Embed Frame</strong>
+    window._dlGuiCurrentItems=captured;
+  }
+
+  // Section 2: Available Streaming Providers
+  if(sources.length){
+    html+=`<div style="font-size:11px;font-weight:700;color:#a99db5;text-transform:uppercase;letter-spacing:0.5px;margin:${captured.length?'14px':'0'} 0 8px 0">Available Sources (${sources.length})</div>`;
+    html+=sources.map((s)=>{
+      const isActive=activeUrl&&s.embedUrl&&(activeUrl===s.embedUrl||activeUrl.includes(s.embedUrl.slice(0,35)));
+      return `
+        <div style="background:#140d20;border:1px solid ${isActive?'#a568ff':'#2d1e3e'};border-radius:8px;padding:9px 10px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between">
+          <div style="overflow:hidden;margin-right:8px">
+            <div style="font-weight:600;font-size:12px;color:#f8f3ff;display:flex;align-items:center;gap:6px">
+              <span>${esc(s.provider||'Source')}</span>
+              <span style="font-size:9px;background:#28183c;color:#a568ff;padding:1px 5px;border-radius:3px">${esc(s.quality||'HD')}</span>
+              ${isActive?'<span style="font-size:9px;background:#15803d;color:#fff;padding:1px 5px;border-radius:3px">CURRENT</span>':''}
+            </div>
+            <div style="color:#7e6e91;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(s.embedUrl||'')}">${esc(s.embedUrl||'')}</div>
           </div>
-          <div style="color:#cbbfd5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:8px;font-size:11px" title="${esc(embedUrl)}">${esc(embedUrl)}</div>
-          <div style="display:flex;gap:6px">
-            <a href="${esc(embedUrl)}" target="_blank" style="flex:1;text-align:center;text-decoration:none;background:#20152d;border:1px solid #30233d;color:#f8f3ff;border-radius:8px;padding:7px;font-size:11px">Open in New Tab</a>
-            <button onclick="navigator.clipboard.writeText('${jesc(embedUrl)}');dlGuiSetStatus('Embed URL copied.')" style="border:1px solid #30233d;background:#20152d;color:#f8f3ff;border-radius:8px;padding:7px 10px;cursor:pointer;font-size:11px">Copy</button>
+          <div style="display:flex;gap:4px;flex-shrink:0">
+            <a href="${esc(s.embedUrl||'')}" target="_blank" style="text-decoration:none;background:#231637;border:1px solid #38254c;color:#f8f3ff;border-radius:5px;padding:5px 8px;font-size:11px">Open</a>
+            <button onclick="navigator.clipboard.writeText('${jesc(s.embedUrl||'')}');dlGuiSetStatus('Copied ${jesc(s.provider)} link.')" style="background:#231637;border:1px solid #38254c;color:#f8f3ff;border-radius:5px;padding:5px 8px;cursor:pointer;font-size:11px">Copy</button>
           </div>
         </div>
       `;
-    }
+    }).join('');
+  }
+
+  if(!captured.length&&!sources.length){
+    html+=`
+      <div style="text-align:center;color:#a99db5;padding:30px 14px">
+        <div style="font-size:24px;margin-bottom:6px">🎬</div>
+        <div style="font-weight:600;color:#f8f3ff;margin-bottom:4px">No stream sources found</div>
+        <div style="font-size:11px;line-height:1.4">Select an episode or paste an HLS/video stream link below.</div>
+      </div>
+    `;
   }
 
   list.innerHTML=html;
@@ -590,7 +654,7 @@ function dlGuiRender(items){
 
 async function dlGuiCopy(i){
   const items=window._dlGuiCurrentItems||[];const item=items[i];if(!item)return
-  try{await navigator.clipboard.writeText(item.url);dlGuiSetStatus('URL copied.')}catch{dlGuiSetStatus('Copy failed.',true)}
+  try{await navigator.clipboard.writeText(item.url);dlGuiSetStatus('Stream URL copied.')}catch{dlGuiSetStatus('Copy failed.',true)}
 }
 
 async function dlGuiDownload(i){
@@ -602,28 +666,18 @@ async function dlGuiDownload(i){
   dlGuiSetStatus('Download started.')
 }
 
-// Real-time listener for video & HLS captures from extension, iframes, and bridge
+// Listener for video & HLS captures in page
 window.addEventListener('message',e=>{
   if(!e.data)return
   try{
     if(e.data._wsVideoCaptured&&e.data.url){
       captureMediaItem(e.data.url,e.data.type||'VIDEO',e.data.title||'')
-    }else if(e.data._wsBridgeReply==='list'&&Array.isArray(e.data.items)){
-      e.data.items.forEach(it=>captureMediaItem(it.url,it.type,it.title))
     }else{
-      // Check if message payload contains any .m3u8 or video URLs
       const rawStr=typeof e.data==='string'?e.data:JSON.stringify(e.data);
       const m=rawStr.match(/https?:\/\/[^"'\s\\]+\.(?:m3u8|mp4|webm)[^"'\s\\]*/gi);
       if(m)m.forEach(u=>captureMediaItem(u,/\.m3u8/i.test(u)?'HLS':'VIDEO'));
     }
   }catch{}
-})
-
-window.addEventListener("ws-media-detected",e=>{
-  if(e.detail?.url)captureMediaItem(e.detail.url,e.detail.type,e.detail.title);
-})
-window.addEventListener("ws-media-list-response",e=>{
-  if(Array.isArray(e.detail))e.detail.forEach(it=>captureMediaItem(it.url,it.type,it.title));
 })
 
 async function streamAndPlay(hash,fi,dlId,ps,pl){
