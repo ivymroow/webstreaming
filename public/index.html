@@ -63,6 +63,10 @@
           </div>
           <label>Password</label>
           <input type="password" id="authPassword" class="modal-input" placeholder="Password" autocomplete="new-password" name="auth-pass">
+          <div id="auth2faWrap" style="display:none;margin-top:8px">
+            <label>2FA Code</label>
+            <input type="text" id="auth2fa" class="modal-input" placeholder="000000" autocomplete="one-time-code">
+          </div>
           <p style="color:#f87171;font-size:13px" id="authError"></p>
           <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:12px" onclick="doAuth()">continue</button>
           <div id="signedOutReset" style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
@@ -93,10 +97,20 @@
           <p style="color:#4ade80;font-size:13px" id="accountStatus"></p>
           <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:12px" onclick="saveAccountEmail()">save email</button>
           <button class="btn btn-secondary" style="width:100%;justify-content:center;margin-top:10px" onclick="sendPasswordReset()">send password reset email</button>
-          <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px">
-            <label>2FA</label>
-            <p class="hint" style="color:var(--text-muted)">2FA needs Supabase MFA enrollment before it can be securely turned on here.</p>
-            <button class="btn btn-secondary" style="width:100%;justify-content:center;margin-top:8px" onclick="showTwoFactorInfo()">2FA setup info</button>
+          <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px" id="account2faSection">
+            <label>Two-Factor Authentication</label>
+            <p class="hint" style="color:var(--text-muted)" id="account2faStatus">Loading 2FA status...</p>
+            <div id="setup2faBox" style="display:none;background:var(--surface);padding:12px;border-radius:var(--radius);margin-top:8px;text-align:center">
+              <p style="font-size:13px;margin-bottom:8px">Scan with authenticator app:</p>
+              <img id="setup2faQr" src="" style="width:150px;height:150px;display:inline-block;background:#fff;border-radius:4px" />
+              <input type="text" id="setup2faCode" class="modal-input" placeholder="Enter 6-digit code" style="margin-top:8px">
+              <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px" onclick="verify2fa()">verify and enable</button>
+            </div>
+            <div id="disable2faBox" style="display:none;margin-top:8px">
+              <input type="text" id="disable2faCode" class="modal-input" placeholder="Enter 6-digit code">
+              <button class="btn btn-secondary" style="width:100%;justify-content:center;margin-top:8px;color:#f87171" onclick="disable2fa()">disable 2fa</button>
+            </div>
+            <button class="btn btn-secondary" id="btnSetup2fa" style="width:100%;justify-content:center;margin-top:8px" onclick="start2faSetup()">setup 2fa</button>
           </div>
           <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px">
             <label>Delete account</label>

@@ -433,7 +433,25 @@ async function doAuth(){
   const username=qs('#authUsername').value.trim(),pass=qs('#authPassword').value;if(!username||!pass)return
   const body={username,password:pass}
   if(authMode==='signup'){const email=qs('#authEmail')?.value.trim();if(email)body.email=email}
-  try{const r=await api('POST',authMode==='signup'?'/api/auth/signup':'/api/auth/signin',body);if(r.needsConfirmation){qs('#authError').style.color='#4ade80';qs('#authError').textContent='check your email to finish signup';return}if(r.ok){state.user=r.user}hideAuth();render()}catch(e){qs('#authError').style.color='#f87171';qs('#authError').textContent=cleanAuthError(e.message)}
+  const token=qs('#auth2fa')?.value.trim();if(token)body.token=token;
+  try{
+    const r=await api('POST',authMode==='signup'?'/api/auth/signup':'/api/auth/signin',body);
+    if(r.needsConfirmation){qs('#authError').style.color='#4ade80';qs('#authError').textContent='check your email to finish signup';return}
+    if(r.needs2fa){
+      qs('#authError').style.color='#4ade80';
+      qs('#authError').textContent='Enter your 2FA code';
+      qs('#auth2faWrap').style.display='block';
+      qs('#auth2fa').focus();
+      return;
+    }
+    if(r.ok){state.user=r.user}
+    qs('#auth2faWrap').style.display='none';
+    qs('#auth2fa').value='';
+    hideAuth();render()
+  }catch(e){
+    qs('#authError').style.color='#f87171';
+    qs('#authError').textContent=cleanAuthError(e.message)
+  }
 }
 function toggleAuthMode(){authMode=authMode==='signin'?'signup':'signin';qs('#authModalTitle').textContent=authMode==='signin'?'sign in':'sign up';const ew=qs('#authEmailWrap');if(ew)ew.style.display=authMode==='signup'?'block':'none';qs('#authToggle').innerHTML=authMode==='signin'?'don\'t have an account? <a href=\"#\" onclick=\"toggleAuthMode();return false\" style=\"color:var(--primary)\">sign up</a>':'already have an account? <a href=\"#\" onclick=\"toggleAuthMode();return false\" style=\"color:var(--primary)\">sign in</a>'}
 function signOut(){fetch((state.backendUrl||'')+'/api/auth/signout',{method:'POST',credentials:'include'}).catch(()=>{});state.user=null;state.view='welcome';history.pushState(null,'','/');render()}
@@ -448,6 +466,13 @@ async function showAccountSettings(){
     const account=await api('GET','/api/auth/account')
     if(email)email.value=account.email&&!account.needsEmail?account.email:''
     if(st)st.textContent=account.needsEmail?'add a real email so password reset can work':''
+    
+    // 2FA UI
+    qs('#setup2faBox').style.display='none';
+    qs('#disable2faBox').style.display=account.totp_enabled?'block':'none';
+    qs('#btnSetup2fa').style.display=account.totp_enabled?'none':'block';
+    qs('#account2faStatus').textContent=account.totp_enabled?'Enabled':'Disabled';
+    qs('#account2faStatus').style.color=account.totp_enabled?'#4ade80':'var(--text-muted)';
   }catch(e){
     if(st)st.textContent=''
     if(err)err.textContent=cleanAuthError(e.message)
@@ -510,10 +535,39 @@ async function deleteMyAccount(){
     if(err)err.textContent=cleanAuthError(e.message)
   }
 }
-function showTwoFactorInfo(){
-  alert('2FA is coming soon! This will require an authenticator app.')
+async function start2faSetup(){
+  try{
+    const r=await api('POST','/api/auth/2fa/setup');
+    qs('#setup2faQr').src=r.qrcode;
+    qs('#setup2faBox').style.display='block';
+    qs('#btnSetup2fa').style.display='none';
+  }catch(e){
+    alert(cleanAuthError(e.message));
+  }
 }
-
+async function verify2fa(){
+  const token=qs('#setup2faCode').value.trim();
+  if(!token)return alert('Enter the code');
+  try{
+    await api('POST','/api/auth/2fa/verify',{token});
+    qs('#setup2faBox').style.display='none';
+    qs('#setup2faCode').value='';
+    showAccountSettings();
+  }catch(e){
+    alert(cleanAuthError(e.message));
+  }
+}
+async function disable2fa(){
+  const token=qs('#disable2faCode').value.trim();
+  if(!token)return alert('Enter the code from your app to disable');
+  try{
+    await api('POST','/api/auth/2fa/disable',{token});
+    qs('#disable2faCode').value='';
+    showAccountSettings();
+  }catch(e){
+    alert(cleanAuthError(e.message));
+  }
+}
 
 function readPasswordResetParams(){
   const query=new URLSearchParams(window.location.search)

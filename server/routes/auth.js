@@ -14,9 +14,33 @@ router.post('/signup', requireBody('username'), requireBody('password'), asyncHa
 }));
 
 router.post('/signin', requireBody('username'), requireBody('password'), asyncHandler(async (req, res) => {
-  const result = await supabase.signIn(req.body.username, req.body.password);
+  const result = await supabase.signIn(req.body.username, req.body.password, req.body.token);
+  if (result.needs2fa) {
+    return res.json({ ok: true, needs2fa: true });
+  }
   sessions.create(res, result.user);
   res.json({ ok: true, user: result.user });
+}));
+
+router.post('/2fa/setup', asyncHandler(async (req, res) => {
+  const user = await requireUser(req, res);
+  if (!user) return;
+  const result = await supabase.setup2fa(user.id);
+  res.json(result);
+}));
+
+router.post('/2fa/verify', requireBody('token'), asyncHandler(async (req, res) => {
+  const user = await requireUser(req, res);
+  if (!user) return;
+  await supabase.verify2faSetup(user.id, req.body.token);
+  res.json({ ok: true });
+}));
+
+router.post('/2fa/disable', requireBody('token'), asyncHandler(async (req, res) => {
+  const user = await requireUser(req, res);
+  if (!user) return;
+  await supabase.disable2fa(user.id, req.body.token);
+  res.json({ ok: true });
 }));
 
 router.post('/session', requireBody('accessToken'), requireBody('refreshToken'), asyncHandler(async (req, res) => {

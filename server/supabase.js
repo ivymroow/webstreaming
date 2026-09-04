@@ -50,11 +50,22 @@ async function signUp(username, password, email) {
   };
 }
 
-async function signIn(username, password) {
+async function signIn(username, password, token) {
   const safeUsername = cleanUsername(username);
   const userEmail = await getEmailForUsername(safeUsername);
   const { data, error } = await sb.auth.signInWithPassword({ email: userEmail, password });
   if (error) throw authError(error.message);
+
+  const md = data.user.user_metadata || {};
+  if (md.totp_enabled) {
+    if (!token) {
+      return { needs2fa: true };
+    }
+    const speakeasy = require('speakeasy');
+    const verified = speakeasy.totp.verify({ secret: md.totp_secret, encoding: 'base32', token });
+    if (!verified) throw authError('Invalid 2FA code');
+  }
+
   return { user: userPayload(data.user, safeUsername) };
 }
 
@@ -88,6 +99,7 @@ async function getAccount(userId) {
     username: user.user_metadata?.username || user.email,
     email: user.email || '',
     needsEmail: (user.email || '').endsWith('@ws.local'),
+    totp_enabled: !!user.user_metadata?.totp_enabled,
   };
 }
 
@@ -234,4 +246,44 @@ async function isInWatchlist(userId, itemId) {
   return !!data;
 }
 
-module.exports = { signUp, signIn, setSession, getAccount, updateEmail, sendPasswordReset, sendPasswordResetToEmail, updatePasswordFromReset, deleteAccount, getClient, saveProgress, getProgress, listProgress, addToWatchlist, removeFromWatchlist, getWatchlist, isInWatchlist };
+async function setup2fa(userId) {
+  const account = await getAccount(userId);
+  let secret = account.user_metadata?.totp_secret;
+  const speakeasy = require('speakeasy');
+  const qrcode = require('qrcode');
+  if (!secret) {
+    const s = speakeasy.generateSecret({ name: 'WebStreaming (' + account.username + ')' });
+    secret = s.base32;
+    await admin.auth.admin.updateUserById(userId, { user_metadata: { ...account.user_metadata, totp_secret: secret } });
+  }
+  const otpauthUrl = speakeasy.otpauthURL({ secret, label: 'WebStreaming (' + account.username + ')', encoding: 'base32' });
+  const dataUrl = await qrcode.toDataURL(otpauthUrl);
+  return { qrcode: dataUrl };
+}
+
+async function verify2faSetup(userId, token) {
+  const account = await getAccount(userId);
+  const secret = account.user_metadata?.totp_secret;
+  if (!secret) throw authError('2FA not initialized');
+  const speakeasy = require('speakeasy');
+  const verified = speakeasy.totp.verify({ secret, encoding: 'base32', token });
+  if (!verified) throw authError('Invalid code');
+  await admin.auth.admin.updateUserById(userId, { user_metadata: { ...account.user_metadata, totp_enabled: true } });
+  return true;
+}
+
+async function disable2fa(userId, token) {
+  const account = await getAccount(userId);
+  const secret = account.user_metadata?.totp_secret;
+  if (!secret) throw authError('2FA not enabled');
+  const speakeasy = require('speakeasy');
+  const verified = speakeasy.totp.verify({ secret, encoding: 'base32', token });
+  if (!verified) throw authError('Invalid code');
+  const md = { ...account.user_metadata };
+  delete md.totp_secret;
+  delete md.totp_enabled;
+  await admin.auth.admin.updateUserById(userId, { user_metadata: md });
+  return true;
+}
+
+module.exports = { signUp, signIn, setSession, getAccount, updateEmail, sendPasswordReset, sendPasswordResetToEmail, updatePasswordFromReset, deleteAccount, setup2fa, verify2faSetup, disable2fa, getClient, saveProgress, getProgress, listProgress, addToWatchlist, removeFromWatchlist, getWatchlist, isInWatchlist };
