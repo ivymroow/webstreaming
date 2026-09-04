@@ -381,16 +381,16 @@ function transmuxTs(buffers,durations,totalSeconds){
   return new Blob([patchMp4Durations(initSegment,totalSeconds),...out],{type:"video/mp4"});
 }
 
-function dlGuiProxyUrl(url){
-  return (state.backendUrl||'')+'/api/media-proxy?url='+encodeURIComponent(url)
+function dlGuiProxyUrl(url,referer=''){
+  return (state.backendUrl||'')+'/api/media-proxy?url='+encodeURIComponent(url)+(referer?'&referer='+encodeURIComponent(referer):'')
 }
-async function dlGuiFetch(url,as='text'){
+async function dlGuiFetch(url,as='text',referer=''){
   let res
   try{
     res=await fetch(url)
     if(!res.ok)throw new Error('HTTP '+res.status)
   }catch{
-    res=await fetch(dlGuiProxyUrl(url))
+    res=await fetch(dlGuiProxyUrl(url,referer))
     if(!res.ok)throw new Error('Proxy HTTP '+res.status)
   }
   return as==='arrayBuffer'?res.arrayBuffer():res.text()
@@ -400,12 +400,13 @@ async function dlGuiHlsDownload(item){
   try{
     dlGuiSetStatus("Reading HLS playlist…");
     let playlistUrl=item.url;
-    let text=await dlGuiFetch(playlistUrl,'text');
+    const referer=item.referer||qs('#playerIframe')?.src||state._embedUrl||''
+    let text=await dlGuiFetch(playlistUrl,'text',referer);
     if(text.includes("#EXT-X-KEY"))throw new Error("Encrypted HLS streams cannot be converted.");
     if(text.includes("#EXT-X-STREAM-INF")){
       const lines=text.split(/\r?\n/),variants=[];
       for(let i=0;i<lines.length;i++)if(lines[i].startsWith("#EXT-X-STREAM-INF"))variants.push({bw:+attr(lines[i],"BANDWIDTH")||0,url:new URL(lines[i+1],playlistUrl).href});
-      variants.sort((a,b)=>b.bw-a.bw);playlistUrl=variants[0]?.url||playlistUrl;text=await dlGuiFetch(playlistUrl,'text');
+      variants.sort((a,b)=>b.bw-a.bw);playlistUrl=variants[0]?.url||playlistUrl;text=await dlGuiFetch(playlistUrl,'text',referer);
     }
     if(text.includes("#EXT-X-KEY"))throw new Error("Encrypted HLS streams cannot be converted.");
     const playlistLines=text.split(/\r?\n/).map(x=>x.trim());
@@ -419,10 +420,10 @@ async function dlGuiHlsDownload(item){
     const urls=entries.map(x=>x.url),durations=entries.map(x=>x.duration),totalSeconds=durations.reduce((a,b)=>a+b,0);
     if(!urls.length)throw new Error("No HLS segments found.");
     const parts=[];
-    if(mapUrl)parts.push(await dlGuiFetch(mapUrl,'arrayBuffer'))
+    if(mapUrl)parts.push(await dlGuiFetch(mapUrl,'arrayBuffer',referer))
     for(let i=0;i<urls.length;i++){
       dlGuiSetStatus(`Downloading segment ${i+1} of ${urls.length}…`);
-      parts.push(await dlGuiFetch(urls[i],'arrayBuffer'));
+      parts.push(await dlGuiFetch(urls[i],'arrayBuffer',referer));
     }
     dlGuiSetStatus("Converting stream to MP4…");
     const first=new Uint8Array(parts[0]),isTs=first[0]===0x47;
@@ -438,7 +439,7 @@ async function dlGuiHlsDownload(item){
   }
 }
 
-function captureMediaItem(url,type="VIDEO",title=""){
+function captureMediaItem(url,type="VIDEO",title="",referer=""){
   if(!url||!/^https?:/i.test(url))return;
   if(!window._dlGuiItems)window._dlGuiItems=[];
   const isHls=/\.m3u8/i.test(url)||/mpegurl/i.test(type);
@@ -447,7 +448,7 @@ function captureMediaItem(url,type="VIDEO",title=""){
   if(existing){
     if(detectedType==="HLS")existing.type="HLS";
   }else{
-    window._dlGuiItems.unshift({url,type:detectedType,title:title||document.title,source:"page"});
+    window._dlGuiItems.unshift({url,type:detectedType,title:title||document.title,source:"page",referer});
     if(window._dlGuiItems.length>100)window._dlGuiItems.pop();
     if(qs('#dl-gui-panel'))dlGuiRender(window._dlGuiItems);
   }
@@ -609,7 +610,7 @@ async function dlGuiSniffCurrentEmbed(){
   dlGuiSetStatus('Scanning current embed...')
   try{
     const items=await api('GET','/api/sniff-media?url='+encodeURIComponent(activeUrl))
-    ;(items||[]).forEach(item=>captureMediaItem(item.url,item.type||'VIDEO',state.data?.title||document.title))
+    ;(items||[]).forEach(item=>captureMediaItem(item.url,item.type||'VIDEO',state.data?.title||document.title,item.referer||activeUrl))
     dlGuiSetStatus(items?.length?'Found '+items.length+' media link(s).':'No direct media found yet. Press play in the iframe, then Scan.')
   }catch{
     dlGuiSetStatus('Could not scan embed yet. Press play, then Scan.',true)
@@ -689,7 +690,7 @@ async function dlGuiDownload(i){
   if(item.type==='HLS'){
     return dlGuiHlsDownload(item)
   }
-  const a=document.createElement('a');a.href=item.url;a.download='';a.target='_blank';a.click()
+  const a=document.createElement('a');a.href=dlGuiProxyUrl(item.url,item.referer||qs('#playerIframe')?.src||state._embedUrl||'');a.download='';a.target='_blank';a.click()
   dlGuiSetStatus('Download started.')
 }
 
@@ -698,10 +699,10 @@ window.addEventListener('message',e=>{
   if(!e.data)return
   try{
     if(e.data._wsBridgeReply==='list'&&Array.isArray(e.data.items)){
-      e.data.items.forEach(item=>captureMediaItem(item.url,item.type||'VIDEO',item.title||document.title))
+      e.data.items.forEach(item=>captureMediaItem(item.url,item.type||'VIDEO',item.title||document.title,item.referer||''))
       if(e.data.items.length)dlGuiSetStatus('Loaded '+e.data.items.length+' captured stream(s).')
     }else if(e.data._wsVideoCaptured&&e.data.url){
-      captureMediaItem(e.data.url,e.data.type||'VIDEO',e.data.title||'')
+      captureMediaItem(e.data.url,e.data.type||'VIDEO',e.data.title||'',e.data.referer||'')
     }else{
       const rawStr=typeof e.data==='string'?e.data:JSON.stringify(e.data);
       const m=rawStr.match(/https?:\/\/[^"'\s\\]+\.(?:m3u8|mp4|webm)[^"'\s\\]*/gi);

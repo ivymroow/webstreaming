@@ -9,7 +9,8 @@ const env = require('../config/env');
 
 const router = express.Router();
 const K = env.tmdbKey;
-const VIDEO_URL_RE = /https?:\/\/[^\s"'<>\\]+?(?:\.m3u8|\.mp4|\.webm|\.mov|\.m4v)(?:[^\s"'<>\\]*)?/gi;
+const VIDEO_URL_RE = /(?:https?:)?\/\/[^\s"'<>\\]+?(?:\.m3u8|\.mp4|\.webm|\.mov|\.m4v)(?:[^\s"'<>\\]*)?|(?:\/|\.\/|\.\.\/)[^\s"'<>\\]+?(?:\.m3u8|\.mp4|\.webm|\.mov|\.m4v)(?:[^\s"'<>\\]*)?/gi;
+const SCRIPT_URL_RE = /(?:src|href)=["']([^"']+)["']|["']((?:https?:)?\/\/[^"']+?\.js(?:[?#][^"']*)?|(?:\/|\.\/|\.\.\/)[^"']+?\.js(?:[?#][^"']*)?)["']/gi;
 
 function safeRemoteUrl(raw) {
   const url = new URL(String(raw || ''));
@@ -21,6 +22,44 @@ function mediaKind(url, contentType = '') {
   if (/\.m3u8(?:$|[?#])/i.test(url) || /mpegurl/i.test(contentType)) return 'HLS';
   const match = url.match(/\.(mp4|webm|mov|m4v)(?:$|[?#])/i);
   return match ? match[1].toUpperCase() : 'VIDEO';
+}
+
+function cleanFoundUrl(raw, base) {
+  try {
+    const cleaned = String(raw || '')
+      .replace(/\\\//g, '/')
+      .replace(/&amp;/g, '&')
+      .replace(/[),.;]+$/g, '');
+    return new URL(cleaned, base).href;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchText(url, referer) {
+  const response = await axios.get(url, {
+    timeout: 12000,
+    maxContentLength: 3 * 1024 * 1024,
+    headers: {
+      'User-Agent': 'Mozilla/5.0',
+      Accept: 'text/html,application/xhtml+xml,application/xml,application/json,text/plain,*/*',
+      Referer: referer || url,
+    },
+    validateStatus: status => status >= 200 && status < 400,
+  });
+  return {
+    text: typeof response.data === 'string' ? response.data : JSON.stringify(response.data || ''),
+    contentType: response.headers['content-type'] || '',
+  };
+}
+
+function collectMedia(text, base, referer, seen, items) {
+  for (const match of text.matchAll(VIDEO_URL_RE)) {
+    const url = cleanFoundUrl(match[0], base);
+    if (!url || seen.has(url)) continue;
+    seen.add(url);
+    items.push({ url, type: mediaKind(url), source: 'embed', referer });
+  }
 }
 
 router.get('/status', (req, res) => {
@@ -49,42 +88,38 @@ router.get('/popular', asyncHandler(async (req, res) => {
 
 router.get('/sniff-media', requireQuery('url'), asyncHandler(async (req, res) => {
   const target = safeRemoteUrl(req.query.url);
-  const response = await axios.get(target, {
-    timeout: 12000,
-    maxContentLength: 2 * 1024 * 1024,
-    headers: {
-      'User-Agent': 'Mozilla/5.0',
-      Accept: 'text/html,application/xhtml+xml,application/xml,application/json,text/plain,*/*',
-      Referer: target,
-    },
-    validateStatus: status => status >= 200 && status < 400,
-  });
-  const contentType = response.headers['content-type'] || '';
+  const { text, contentType } = await fetchText(target, req.query.referer);
   if (/video|mpegurl/i.test(contentType) || /\.(mp4|webm|mov|m4v|m3u8)(?:$|[?#])/i.test(target)) {
-    res.json([{ url: target, type: mediaKind(target, contentType), source: 'embed' }]);
+    res.json([{ url: target, type: mediaKind(target, contentType), source: 'embed', referer: req.query.referer || target }]);
     return;
   }
-  const text = typeof response.data === 'string' ? response.data : JSON.stringify(response.data || '');
   const seen = new Set();
   const items = [];
-  for (const match of text.matchAll(VIDEO_URL_RE)) {
-    const url = match[0].replace(/&amp;/g, '&');
-    if (seen.has(url)) continue;
-    seen.add(url);
-    items.push({ url, type: mediaKind(url), source: 'embed' });
+  const scripts = [];
+  collectMedia(text, target, target, seen, items);
+  for (const match of text.matchAll(SCRIPT_URL_RE)) {
+    const url = cleanFoundUrl(match[1] || match[2], target);
+    if (url && scripts.length < 12 && !scripts.includes(url)) scripts.push(url);
+  }
+  for (const scriptUrl of scripts) {
+    try {
+      const script = await fetchText(scriptUrl, target);
+      collectMedia(script.text, scriptUrl, target, seen, items);
+    } catch {}
   }
   res.json(items.slice(0, 50));
 }));
 
 router.get('/media-proxy', requireQuery('url'), asyncHandler(async (req, res) => {
   const target = safeRemoteUrl(req.query.url);
+  const referer = req.query.referer ? safeRemoteUrl(req.query.referer) : target;
   const response = await axios.get(target, {
     timeout: 30000,
     responseType: 'stream',
     headers: {
       'User-Agent': 'Mozilla/5.0',
       Accept: '*/*',
-      Referer: target,
+      Referer: referer,
       ...(req.headers.range ? { Range: req.headers.range } : {}),
     },
     validateStatus: status => status >= 200 && status < 400,
