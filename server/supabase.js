@@ -57,13 +57,23 @@ async function signIn(username, password, token) {
   if (error) throw authError(error.message);
 
   const md = data.user.user_metadata || {};
+
+  // TOTP 2FA
   if (md.totp_enabled) {
-    if (!token) {
-      return { needs2fa: true };
-    }
+    if (!token) return { needs2fa: true, method: 'totp' };
     const speakeasy = require('speakeasy');
     const verified = speakeasy.totp.verify({ secret: md.totp_secret, encoding: 'base32', token });
     if (!verified) throw authError('Invalid 2FA code');
+  }
+
+  // Email 2FA
+  if (md.email_2fa_enabled) {
+    if (!token) {
+      // Auto-send OTP and signal frontend to prompt for it
+      await sendEmailOTP(data.user.id);
+      return { needs2fa: true, method: 'email' };
+    }
+    await verifyEmailOTP(data.user.id, token);
   }
 
   return { user: userPayload(data.user, safeUsername) };
@@ -100,6 +110,7 @@ async function getAccount(userId) {
     email: user.email || '',
     needsEmail: (user.email || '').endsWith('@ws.local'),
     totp_enabled: !!user.user_metadata?.totp_enabled,
+    email_2fa_enabled: !!user.user_metadata?.email_2fa_enabled,
     user_metadata: user.user_metadata,
   };
 }
@@ -287,4 +298,78 @@ async function disable2fa(userId, token) {
   return true;
 }
 
-module.exports = { signUp, signIn, setSession, getAccount, updateEmail, sendPasswordReset, sendPasswordResetToEmail, updatePasswordFromReset, deleteAccount, setup2fa, verify2faSetup, disable2fa, getClient, saveProgress, getProgress, listProgress, addToWatchlist, removeFromWatchlist, getWatchlist, isInWatchlist };
+function createMailer() {
+  const nodemailer = require('nodemailer');
+  if (!env.smtpHost || !env.smtpUser) throw authError('SMTP is not configured. Set SMTP_HOST, SMTP_USER, SMTP_PASS in environment variables.');
+  return nodemailer.createTransport({
+    host: env.smtpHost,
+    port: env.smtpPort,
+    secure: env.smtpPort === 465,
+    auth: { user: env.smtpUser, pass: env.smtpPass },
+  });
+}
+
+async function setup2faEmail(userId) {
+  if (!env.supabaseServiceRoleKey) throw authError('Email 2FA requires SUPABASE_SERVICE_ROLE_KEY');
+  const account = await getAccount(userId);
+  if (account.needsEmail) throw authError('Add a real email address to your account before enabling email 2FA');
+  if (account.user_metadata?.totp_enabled) throw authError('Disable authenticator app 2FA first');
+  const md = { ...account.user_metadata, email_2fa_enabled: true };
+  await admin.auth.admin.updateUserById(userId, { user_metadata: md });
+  return true;
+}
+
+async function disable2faEmail(userId, code) {
+  const account = await getAccount(userId);
+  if (!account.user_metadata?.email_2fa_enabled) throw authError('Email 2FA is not enabled');
+  const storedCode = account.user_metadata?.email_otp_code;
+  const expires = account.user_metadata?.email_otp_expires;
+  if (!storedCode || !expires || Date.now() > expires) throw authError('Code expired — request a new one');
+  if (cleanString(code, 10) !== String(storedCode)) throw authError('Invalid code');
+  const md = { ...account.user_metadata };
+  delete md.email_2fa_enabled;
+  delete md.email_otp_code;
+  delete md.email_otp_expires;
+  await admin.auth.admin.updateUserById(userId, { user_metadata: md });
+  return true;
+}
+
+async function sendEmailOTP(userId) {
+  const account = await getAccount(userId);
+  if (!account.email || account.needsEmail) throw authError('No valid email on account');
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+  const expires = Date.now() + 10 * 60 * 1000; // 10 minutes
+  await admin.auth.admin.updateUserById(userId, {
+    user_metadata: { ...account.user_metadata, email_otp_code: code, email_otp_expires: expires },
+  });
+  const mailer = createMailer();
+  await mailer.sendMail({
+    from: env.smtpFrom || env.smtpUser,
+    to: account.email,
+    subject: 'Your WebStreaming 2FA code',
+    text: `Your sign-in code is: ${code}\n\nThis code expires in 10 minutes. If you did not request this, ignore this email.`,
+    html: `<div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:24px;background:#09070d;color:#f8f3ff;border-radius:12px">
+      <h2 style="color:#a568ff;margin-top:0">WebStreaming</h2>
+      <p>Your sign-in verification code is:</p>
+      <div style="font-size:36px;font-weight:700;letter-spacing:8px;color:#a568ff;padding:16px 0">${code}</div>
+      <p style="color:#a99db5;font-size:13px">This code expires in 10 minutes. If you didn't request this, you can ignore this email.</p>
+    </div>`,
+  });
+}
+
+async function verifyEmailOTP(userId, code) {
+  const account = await getAccount(userId);
+  const storedCode = account.user_metadata?.email_otp_code;
+  const expires = account.user_metadata?.email_otp_expires;
+  if (!storedCode || !expires || Date.now() > expires) throw authError('Code expired — request a new one');
+  if (cleanString(code, 10) !== String(storedCode)) throw authError('Invalid code');
+  // Clear used code
+  const md = { ...account.user_metadata };
+  delete md.email_otp_code;
+  delete md.email_otp_expires;
+  await admin.auth.admin.updateUserById(userId, { user_metadata: md });
+  return true;
+}
+
+module.exports = { signUp, signIn, setSession, getAccount, updateEmail, sendPasswordReset, sendPasswordResetToEmail, updatePasswordFromReset, deleteAccount, setup2fa, verify2faSetup, disable2fa, setup2faEmail, disable2faEmail, sendEmailOTP, verifyEmailOTP, getClient, saveProgress, getProgress, listProgress, addToWatchlist, removeFromWatchlist, getWatchlist, isInWatchlist };
+

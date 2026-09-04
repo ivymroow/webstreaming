@@ -16,7 +16,7 @@ router.post('/signup', requireBody('username'), requireBody('password'), asyncHa
 router.post('/signin', requireBody('username'), requireBody('password'), asyncHandler(async (req, res) => {
   const result = await supabase.signIn(req.body.username, req.body.password, req.body.token);
   if (result.needs2fa) {
-    return res.json({ ok: true, needs2fa: true });
+    return res.json({ ok: true, needs2fa: true, method: result.method });
   }
   sessions.create(res, result.user);
   res.json({ ok: true, user: result.user });
@@ -40,6 +40,27 @@ router.post('/2fa/disable', requireBody('token'), asyncHandler(async (req, res) 
   const user = await requireUser(req, res);
   if (!user) return;
   await supabase.disable2fa(user.id, req.body.token);
+  res.json({ ok: true });
+}));
+
+router.post('/2fa/email/setup', asyncHandler(async (req, res) => {
+  const user = await requireUser(req, res);
+  if (!user) return;
+  await supabase.setup2faEmail(user.id);
+  res.json({ ok: true });
+}));
+
+router.post('/2fa/email/disable', requireBody('code'), asyncHandler(async (req, res) => {
+  const user = await requireUser(req, res);
+  if (!user) return;
+  await supabase.disable2faEmail(user.id, req.body.code);
+  res.json({ ok: true });
+}));
+
+router.post('/2fa/email/send', asyncHandler(async (req, res) => {
+  const user = await requireUser(req, res);
+  if (!user) return;
+  await supabase.sendEmailOTP(user.id);
   res.json({ ok: true });
 }));
 

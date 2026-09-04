@@ -64,7 +64,7 @@
           <label>Password</label>
           <input type="password" id="authPassword" class="modal-input" placeholder="Password" autocomplete="new-password" name="auth-pass">
           <div id="auth2faWrap" style="display:none;margin-top:8px">
-            <label>2FA Code</label>
+            <label id="auth2faLabel">2FA Code</label>
             <input type="text" id="auth2fa" class="modal-input" placeholder="000000" autocomplete="one-time-code">
           </div>
           <p style="color:#f87171;font-size:13px" id="authError"></p>
@@ -105,12 +105,26 @@
               <img id="setup2faQr" src="" style="width:150px;height:150px;display:inline-block;background:#fff;border-radius:4px" />
               <input type="text" id="setup2faCode" class="modal-input" placeholder="Enter 6-digit code" style="margin-top:8px">
               <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px" onclick="verify2fa()">verify and enable</button>
+              <button class="btn btn-secondary" style="width:100%;justify-content:center;margin-top:6px" onclick="cancel2faSetup()">cancel</button>
             </div>
             <div id="disable2faBox" style="display:none;margin-top:8px">
-              <input type="text" id="disable2faCode" class="modal-input" placeholder="Enter 6-digit code">
-              <button class="btn btn-secondary" style="width:100%;justify-content:center;margin-top:8px;color:#f87171" onclick="disable2fa()">disable 2fa</button>
+              <input type="text" id="disable2faCode" class="modal-input" placeholder="Enter 6-digit code from app">
+              <button class="btn btn-secondary" style="width:100%;justify-content:center;margin-top:8px;color:#f87171" onclick="disable2fa()">disable app 2fa</button>
             </div>
-            <button class="btn btn-secondary" id="btnSetup2fa" style="width:100%;justify-content:center;margin-top:8px" onclick="start2faSetup()">setup 2fa</button>
+            <div id="setupEmail2faBox" style="display:none;margin-top:8px;background:var(--surface);padding:12px;border-radius:var(--radius)">
+              <p style="font-size:13px;color:var(--text-muted);margin-bottom:8px">A 6-digit code will be emailed each time you sign in.</p>
+              <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:4px" onclick="enableEmail2fa()">enable email 2fa</button>
+              <button class="btn btn-secondary" style="width:100%;justify-content:center;margin-top:6px" onclick="cancel2faSetup()">cancel</button>
+            </div>
+            <div id="disableEmail2faBox" style="display:none;margin-top:8px">
+              <button class="btn btn-secondary" style="width:100%;justify-content:center;margin-bottom:8px" onclick="sendDisableEmailOtp()">send verification code to email</button>
+              <input type="text" id="disableEmail2faCode" class="modal-input" placeholder="Enter 6-digit code from email">
+              <button class="btn btn-secondary" style="width:100%;justify-content:center;margin-top:8px;color:#f87171" onclick="disableEmail2fa()">disable email 2fa</button>
+            </div>
+            <div id="no2faActions" style="display:flex;gap:8px;margin-top:8px">
+              <button class="btn btn-secondary" id="btnSetup2fa" style="flex:1;justify-content:center;font-size:12px" onclick="start2faSetup()">Authenticator App</button>
+              <button class="btn btn-secondary" id="btnSetupEmail2fa" style="flex:1;justify-content:center;font-size:12px" onclick="startEmail2faSetup()">Email Code</button>
+            </div>
           </div>
           <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px">
             <label>Delete account</label>

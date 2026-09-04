@@ -297,7 +297,8 @@ function ifr(url,title){
   const cur=eps.find(s=>s.season===selectedSeason)
   const epOpts=cur?cur.episodes.map(e=>'<option value="'+e.number+'"'+(e.number===selectedEpisode?' selected':'')+'>'+e.number+'. '+esc(e.name)+'</option>').join(''):''
   const drops=eps.length?'<select id="pvSeason" onchange="pvFillEpisodes()">'+seasonOpts+'</select><select id="pvEpisode" onchange="pvPlay()">'+epOpts+'</select>':''
-  return'<div class="player-container"><div class="player-toolbar"><button class="detail-back" onclick="cp()"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>back</button>'+drops+'</div><div class="player-wrapper"><iframe src="'+u+'" allow="autoplay;encrypted-media;fullscreen" allowfullscreen referrerpolicy="no-referrer" style="position:absolute;inset:0;width:100%;height:100%;border:none;background:#000"></iframe></div></div>'
+  const dlBtn='<button class="btn btn-secondary" onclick="toggleDownloadGUI()" style="padding:4px 10px;font-size:12px;display:flex;align-items:center;gap:5px"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download</button>'
+  return'<div class="player-container"><div class="player-toolbar"><button class="detail-back" onclick="cp()"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>back</button>'+drops+dlBtn+'</div><div class="player-wrapper"><iframe id="playerIframe" src="'+u+'" allow="autoplay;encrypted-media;fullscreen" allowfullscreen referrerpolicy="no-referrer" style="position:absolute;inset:0;width:100%;height:100%;border:none;background:#000"></iframe></div></div>'
 }
 
 function pvFillEpisodes(){
@@ -326,6 +327,112 @@ async function pvPlay(){
     qs('#main').innerHTML=ifr(src.embedUrl,title+' S'+String(season).padStart(2,'0')+'E'+String(episode).padStart(2,'0'))
   }
 }
+
+// ---- Download GUI panel ----
+function toggleDownloadGUI(){
+  let panel=qs('#dl-gui-panel')
+  if(panel){panel.remove();return}
+  panel=document.createElement('div')
+  panel.id='dl-gui-panel'
+  panel.style.cssText='position:fixed;bottom:70px;right:16px;z-index:9999;width:370px;background:radial-gradient(circle at 50% -20%,#32164f,transparent 45%),#09070d;color:#f8f3ff;font:13px Inter,Arial,sans-serif;border:1px solid #30233d;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.6);overflow:hidden'
+  panel.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #30233d">
+      <div><div style="font-size:15px;font-weight:700;margin-bottom:2px">embed downloader <span style="font-size:10px;color:#a568ff;vertical-align:middle">v1.0</span></div><div style="color:#a99db5;font-size:11px">developed · by ivymroow</div></div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button onclick="dlGuiClear()" style="border:1px solid #30233d;background:#20152d;color:#f8f3ff;border-radius:8px;padding:5px 10px;cursor:pointer;font-size:12px">Clear</button>
+        <button onclick="document.getElementById('dl-gui-panel').remove()" style="border:1px solid #30233d;background:#20152d;color:#f8f3ff;border-radius:8px;padding:5px 8px;cursor:pointer">✕</button>
+      </div>
+    </div>
+    <div id="dl-gui-list" style="padding:10px;max-height:340px;overflow-y:auto"><div style="text-align:center;color:#a99db5;padding:40px 20px">play the video, then reopen this panel.</div></div>
+    <div id="dl-gui-status" style="padding:8px 14px;color:#a99db5;border-top:1px solid #30233d;font-size:11px">ready</div>
+  `
+  document.body.appendChild(panel)
+  dlGuiRefresh()
+}
+
+function dlGuiSetStatus(msg,err=false){
+  const el=qs('#dl-gui-status');if(!el)return
+  el.textContent=msg
+  el.style.color=err?'#ff8c9e':'#a99db5'
+}
+
+async function dlGuiRefresh(){
+  const list=qs('#dl-gui-list');if(!list)return
+  // Try extension first
+  if(typeof chrome!=='undefined'&&chrome.runtime){
+    try{
+      const [tab]=await chrome.tabs.query({active:true,currentWindow:true})
+      const res=await chrome.runtime.sendMessage({type:'list',tabId:tab.id})
+      dlGuiRender(res.items||[]);return
+    }catch{}
+  }
+  // Fallback: sniff captured network items stored by content script messages
+  const items=window._dlGuiItems||[]
+  dlGuiRender(items)
+}
+
+async function dlGuiClear(){
+  window._dlGuiItems=[]
+  if(typeof chrome!=='undefined'&&chrome.runtime){
+    try{
+      const [tab]=await chrome.tabs.query({active:true,currentWindow:true})
+      await chrome.runtime.sendMessage({type:'clear',tabId:tab.id})
+    }catch{}
+  }
+  dlGuiRender([])
+  dlGuiSetStatus('List cleared.')
+}
+
+function dlGuiRender(items){
+  const list=qs('#dl-gui-list');if(!list)return
+  if(!items||!items.length){list.innerHTML='<div style="text-align:center;color:#a99db5;padding:40px 20px">Play the video, then reopen this panel.</div>';return}
+  list.innerHTML=items.map((item,i)=>`
+    <div style="background:linear-gradient(135deg,#171020,#100d15);border:1px solid #30233d;border-radius:10px;padding:10px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <span style="font-size:10px;font-weight:800;color:#160922;background:#a568ff;padding:2px 6px;border-radius:5px">${esc(item.type||'VIDEO')}</span>
+        <strong style="font-size:13px">Detected media</strong>
+      </div>
+      <div style="color:#cbbfd5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:8px;font-size:11px" title="${esc(item.url||'')}">${esc(item.url||'')}</div>
+      <div style="display:flex;gap:6px">
+        <button onclick="dlGuiDownload(${i})" style="flex:1;background:#a568ff;color:#100717;border:0;font-weight:700;border-radius:8px;padding:7px 10px;cursor:pointer">${item.type==='HLS'?'Download HLS':'Download'}</button>
+        <button onclick="dlGuiCopy(${i})" style="border:1px solid #30233d;background:#20152d;color:#f8f3ff;border-radius:8px;padding:7px 10px;cursor:pointer">Copy URL</button>
+      </div>
+    </div>
+  `).join('')
+  window._dlGuiCurrentItems=items
+}
+
+async function dlGuiCopy(i){
+  const items=window._dlGuiCurrentItems||[];const item=items[i];if(!item)return
+  try{await navigator.clipboard.writeText(item.url);dlGuiSetStatus('URL copied.')}catch{dlGuiSetStatus('Copy failed.',true)}
+}
+
+async function dlGuiDownload(i){
+  const items=window._dlGuiCurrentItems||[];const item=items[i];if(!item)return
+  if(item.type==='HLS'){
+    dlGuiSetStatus('HLS download: open extension popup for HLS support, or copy URL and use a tool like yt-dlp.');return
+  }
+  // Direct download via <a> tag
+  try{
+    if(typeof chrome!=='undefined'&&chrome.runtime){
+      const safe=(item.url||'video').replace(/[\\/:*?"<>|]+/g,'_').slice(0,90)+'.mp4'
+      const r=await chrome.runtime.sendMessage({type:'download',url:item.url,filename:safe})
+      dlGuiSetStatus(r.ok?'Download started.':r.error,!r.ok);return
+    }
+  }catch{}
+  const a=document.createElement('a');a.href=item.url;a.download='';a.target='_blank';a.click()
+  dlGuiSetStatus('Download started.')
+}
+
+// Listen for video URLs detected by page — works without extension too
+window.addEventListener('message',e=>{
+  if(e.data&&e.data._wsVideoCaptured){
+    if(!window._dlGuiItems)window._dlGuiItems=[]
+    const existing=window._dlGuiItems.find(x=>x.url===e.data.url)
+    if(!existing)window._dlGuiItems.unshift({url:e.data.url,type:e.data.type||'VIDEO',source:'page'})
+    if(qs('#dl-gui-list'))dlGuiRender(window._dlGuiItems)
+  }
+})
 
 async function streamAndPlay(hash,fi,dlId,ps,pl){
   const base=state.backendUrl||'',infoHash=hash
@@ -439,7 +546,13 @@ async function doAuth(){
     if(r.needsConfirmation){qs('#authError').style.color='#4ade80';qs('#authError').textContent='check your email to finish signup';return}
     if(r.needs2fa){
       qs('#authError').style.color='#4ade80';
-      qs('#authError').textContent='Enter your 2FA code';
+      if(r.method==='email'){
+        qs('#authError').textContent='Verification code sent to your email. Enter below:';
+        if(qs('#auth2faLabel'))qs('#auth2faLabel').textContent='Email Verification Code';
+      }else{
+        qs('#authError').textContent='Enter 6-digit code from authenticator app:';
+        if(qs('#auth2faLabel'))qs('#auth2faLabel').textContent='Authenticator Code';
+      }
       qs('#auth2faWrap').style.display='block';
       qs('#auth2fa').focus();
       return;
@@ -447,13 +560,14 @@ async function doAuth(){
     if(r.ok){state.user=r.user}
     qs('#auth2faWrap').style.display='none';
     qs('#auth2fa').value='';
+    if(qs('#auth2faLabel'))qs('#auth2faLabel').textContent='2FA Code';
     hideAuth();render()
   }catch(e){
     qs('#authError').style.color='#f87171';
     qs('#authError').textContent=cleanAuthError(e.message)
   }
 }
-function toggleAuthMode(){authMode=authMode==='signin'?'signup':'signin';qs('#authModalTitle').textContent=authMode==='signin'?'sign in':'sign up';const ew=qs('#authEmailWrap');if(ew)ew.style.display=authMode==='signup'?'block':'none';qs('#authToggle').innerHTML=authMode==='signin'?'don\'t have an account? <a href=\"#\" onclick=\"toggleAuthMode();return false\" style=\"color:var(--primary)\">sign up</a>':'already have an account? <a href=\"#\" onclick=\"toggleAuthMode();return false\" style=\"color:var(--primary)\">sign in</a>'}
+function toggleAuthMode(){authMode=authMode==='signin'?'signup':'signin';qs('#authModalTitle').textContent=authMode==='signin'?'sign in':'sign up';const ew=qs('#authEmailWrap');if(ew)ew.style.display=authMode==='signup'?'block':'none';if(qs('#auth2faWrap'))qs('#auth2faWrap').style.display='none';if(qs('#auth2fa'))qs('#auth2fa').value='';qs('#authToggle').innerHTML=authMode==='signin'?'don\'t have an account? <a href=\"#\" onclick=\"toggleAuthMode();return false\" style=\"color:var(--primary)\">sign up</a>':'already have an account? <a href=\"#\" onclick=\"toggleAuthMode();return false\" style=\"color:var(--primary)\">sign in</a>'}
 function signOut(){fetch((state.backendUrl||'')+'/api/auth/signout',{method:'POST',credentials:'include'}).catch(()=>{});state.user=null;state.view='welcome';history.pushState(null,'','/');render()}
 function hideAccountSettings(){const m=qs('#account-modal');if(m)m.style.display='none'}
 async function showAccountSettings(){
@@ -468,11 +582,26 @@ async function showAccountSettings(){
     if(st)st.textContent=account.needsEmail?'add a real email so password reset can work':''
     
     // 2FA UI
-    qs('#setup2faBox').style.display='none';
-    qs('#disable2faBox').style.display=account.totp_enabled?'block':'none';
-    qs('#btnSetup2fa').style.display=account.totp_enabled?'none':'block';
-    qs('#account2faStatus').textContent=account.totp_enabled?'Enabled':'Disabled';
-    qs('#account2faStatus').style.color=account.totp_enabled?'#4ade80':'var(--text-muted)';
+    if(qs('#setup2faBox'))qs('#setup2faBox').style.display='none';
+    if(qs('#setupEmail2faBox'))qs('#setupEmail2faBox').style.display='none';
+    const isTotp = !!account.totp_enabled;
+    const isEmail = !!account.email_2fa_enabled;
+    const isAny = isTotp || isEmail;
+
+    if(qs('#disable2faBox'))qs('#disable2faBox').style.display=isTotp?'block':'none';
+    if(qs('#disableEmail2faBox'))qs('#disableEmail2faBox').style.display=isEmail?'block':'none';
+    if(qs('#no2faActions'))qs('#no2faActions').style.display=isAny?'none':'flex';
+
+    if(isTotp){
+      qs('#account2faStatus').textContent='Enabled (Authenticator App)';
+      qs('#account2faStatus').style.color='#4ade80';
+    }else if(isEmail){
+      qs('#account2faStatus').textContent='Enabled (Email Code)';
+      qs('#account2faStatus').style.color='#4ade80';
+    }else{
+      qs('#account2faStatus').textContent='Disabled';
+      qs('#account2faStatus').style.color='var(--text-muted)';
+    }
   }catch(e){
     if(st)st.textContent=''
     if(err)err.textContent=cleanAuthError(e.message)
@@ -535,12 +664,50 @@ async function deleteMyAccount(){
     if(err)err.textContent=cleanAuthError(e.message)
   }
 }
+function cancel2faSetup(){
+  if(qs('#setup2faBox'))qs('#setup2faBox').style.display='none';
+  if(qs('#setupEmail2faBox'))qs('#setupEmail2faBox').style.display='none';
+  if(qs('#no2faActions'))qs('#no2faActions').style.display='flex';
+}
 async function start2faSetup(){
   try{
     const r=await api('POST','/api/auth/2fa/setup');
     qs('#setup2faQr').src=r.qrcode;
     qs('#setup2faBox').style.display='block';
-    qs('#btnSetup2fa').style.display='none';
+    if(qs('#setupEmail2faBox'))qs('#setupEmail2faBox').style.display='none';
+    if(qs('#no2faActions'))qs('#no2faActions').style.display='none';
+  }catch(e){
+    alert(cleanAuthError(e.message));
+  }
+}
+function startEmail2faSetup(){
+  if(qs('#setup2faBox'))qs('#setup2faBox').style.display='none';
+  if(qs('#setupEmail2faBox'))qs('#setupEmail2faBox').style.display='block';
+  if(qs('#no2faActions'))qs('#no2faActions').style.display='none';
+}
+async function enableEmail2fa(){
+  try{
+    await api('POST','/api/auth/2fa/email/setup');
+    showAccountSettings();
+  }catch(e){
+    alert(cleanAuthError(e.message));
+  }
+}
+async function sendDisableEmailOtp(){
+  try{
+    await api('POST','/api/auth/2fa/email/send');
+    alert('Verification code sent to your email.');
+  }catch(e){
+    alert(cleanAuthError(e.message));
+  }
+}
+async function disableEmail2fa(){
+  const code=qs('#disableEmail2faCode').value.trim();
+  if(!code)return alert('Enter the code sent to your email');
+  try{
+    await api('POST','/api/auth/2fa/email/disable',{code});
+    qs('#disableEmail2faCode').value='';
+    showAccountSettings();
   }catch(e){
     alert(cleanAuthError(e.message));
   }

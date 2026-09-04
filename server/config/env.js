@@ -74,6 +74,11 @@ const env = {
   supabaseKey: supabaseServiceRoleKey || supabaseAuthKey || 'development-placeholder',
   tmdbKey: requireEnv('TMDB_KEY') || '',
   sessionSecret: requireEnv('SESSION_SECRET') || 'ws-local-dev-secret',
+  smtpHost: optionalEnv('SMTP_HOST'),
+  smtpPort: numberFromEnv('SMTP_PORT', 587),
+  smtpUser: optionalEnv('SMTP_USER'),
+  smtpPass: optionalEnv('SMTP_PASS'),
+  smtpFrom: optionalEnv('SMTP_FROM') || optionalEnv('SMTP_USER'),
 };
 
 module.exports = env;
