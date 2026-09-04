@@ -20,7 +20,7 @@ async function api(m,t,p,n){
   if(state.mode==='backend'){
     const b=state.backendUrl||'';const o={headers:{'Content-Type':'application/json'}}
     if(p)o.body=JSON.stringify(p)
-    const r=await fetch(`${b}${t}`,{...o,method:m,credentials:'include'})
+    const r=await fetch(`${b}${t}`,{...o,method:m,credentials:'include',signal:AbortSignal.timeout(15000)})
     const text=await r.text()
     const data=text?JSON.parse(text):{}
     if(!r.ok)throw new Error(data.error||data.message||`HTTP ${r.status}`)

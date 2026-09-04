@@ -61,8 +61,16 @@ async function signUp(username, password, email) {
 
 async function signIn(username, password, token) {
   const safeUsername = cleanUsername(username);
-  const userEmail = await getEmailForUsername(safeUsername);
-  const { data, error } = await sb.auth.signInWithPassword({ email: userEmail, password });
+  const localEmail = safeUsername.includes('@') ? safeUsername : `${safeUsername}@ws.local`;
+  let { data, error } = await sb.auth.signInWithPassword({ email: localEmail, password });
+  if (error && !safeUsername.includes('@') && env.supabaseServiceRoleKey) {
+    const userEmail = await getEmailForUsername(safeUsername);
+    if (userEmail !== localEmail) {
+      const retry = await sb.auth.signInWithPassword({ email: userEmail, password });
+      data = retry.data;
+      error = retry.error;
+    }
+  }
   if (error) throw authError(error.message);
 
   const md = data.user.user_metadata || {};
