@@ -44,6 +44,15 @@ async function signUp(username, password, email) {
   const userEmail = safeEmail || `${safeUsername}@ws.local`;
   const { data, error } = await sb.auth.signUp({ email: userEmail, password, options: { data: { username: safeUsername } } });
   if (error) throw authError(error.message);
+  if (env.supabaseServiceRoleKey && data?.user?.id) {
+    await admin.from('ws_accounts').upsert({
+      username_key: safeUsername.toLowerCase(),
+      username: safeUsername,
+      user_id: data.user.id,
+      session_version: '',
+      reset_pending: false,
+    }, { onConflict: 'username_key' });
+  }
   return {
     user: { id: data.user.id, username: safeUsername, email: data.user.email },
     needsConfirmation: !data.session,
@@ -93,10 +102,34 @@ async function getEmailForUsername(username) {
   const localEmail = `${username}@ws.local`;
   if (!env.supabaseServiceRoleKey) return localEmail;
 
-  const { data, error } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-  if (error) return localEmail;
-  const user = data?.users?.find(item => item.user_metadata?.username === username);
-  return user?.email || localEmail;
+  const account = await admin
+    .from('ws_accounts')
+    .select('user_id')
+    .eq('username_key', username.toLowerCase())
+    .maybeSingle();
+  if (account.data?.user_id) {
+    const { data } = await admin.auth.admin.getUserById(account.data.user_id);
+    if (data?.user?.email) return data.user.email;
+  }
+
+  for (let page = 1; page <= 20; page += 1) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error || !data?.users?.length) break;
+    const user = data.users.find(item => item.user_metadata?.username === username);
+    if (user?.email) {
+      await admin.from('ws_accounts').upsert({
+        username_key: username.toLowerCase(),
+        username,
+        user_id: user.id,
+        session_version: '',
+        reset_pending: false,
+      }, { onConflict: 'username_key' });
+      return user.email;
+    }
+    if (data.users.length < 1000) break;
+  }
+
+  return localEmail;
 }
 
 async function getAccount(userId) {
@@ -122,9 +155,19 @@ async function updateEmail(userId, email) {
   const { data, error } = await admin.auth.admin.updateUserById(userId, { email: safeEmail });
   if (error) throw authError(error.message);
   const user = data.user;
+  const username = user.user_metadata?.username || user.email;
+  if (username) {
+    await admin.from('ws_accounts').upsert({
+      username_key: username.toLowerCase(),
+      username,
+      user_id: user.id,
+      session_version: '',
+      reset_pending: false,
+    }, { onConflict: 'username_key' });
+  }
   return {
     id: user.id,
-    username: user.user_metadata?.username || user.email,
+    username,
     email: user.email || safeEmail,
     needsEmail: false,
   };
@@ -399,4 +442,3 @@ async function verifyEmailOTP(userId, code) {
 }
 
 module.exports = { signUp, signIn, setSession, getAccount, updateEmail, sendPasswordReset, sendPasswordResetToEmail, updatePasswordFromReset, deleteAccount, setup2fa, verify2faSetup, disable2fa, setup2faEmail, disable2faEmail, sendEmailOTP, verifyEmailOTP, getClient, saveProgress, getProgress, listProgress, addToWatchlist, removeFromWatchlist, getWatchlist, isInWatchlist };
-
