@@ -123,8 +123,9 @@ async function finishSignIn(user, safeUsername, token) {
   // Email 2FA
   if (md.email_2fa_enabled === true) {
     if (!token) {
-      // Auto-send OTP and signal frontend to prompt for it
-      await sendEmailOTP(user.id);
+      sendEmailOTP(user.id).catch(error => {
+        console.error('Email 2FA delivery failed:', error?.message || error);
+      });
       return { needs2fa: true, method: 'email' };
     }
     await verifyEmailOTP(user.id, token);
@@ -442,6 +443,9 @@ function createMailer() {
     port: env.smtpPort,
     secure: env.smtpPort === 465,
     auth: { user: env.smtpUser, pass: env.smtpPass },
+    connectionTimeout: 8000,
+    greetingTimeout: 8000,
+    socketTimeout: 12000,
   });
 }
 
