@@ -100,6 +100,7 @@ async function getAccount(userId) {
     email: user.email || '',
     needsEmail: (user.email || '').endsWith('@ws.local'),
     totp_enabled: !!user.user_metadata?.totp_enabled,
+    user_metadata: user.user_metadata,
   };
 }
 
