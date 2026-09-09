@@ -44,6 +44,10 @@ function createApp() {
     res.sendFile(path.join(env.publicDir, 'privacy.html'));
   });
 
+  app.get('/download', (req, res) => {
+    res.redirect(302, 'https://chromewebstore.google.com/detail/web-streaming-addon/gelhkcjlpflgkghciolihlncmanjfhbb');
+  });
+
   app.use('/api', mediaRoutes);
   app.use('/api/auth', authRoutes);
   app.use('/api/progress', progressRoutes);

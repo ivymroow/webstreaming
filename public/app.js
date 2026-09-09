@@ -114,7 +114,7 @@ function qso(){const cm=qs('#ctxMenu');if(cm)cm.remove()}
 async function moveProgress(id,status){fetch((state.backendUrl||'')+'/api/progress/update',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({id,status})}).catch(()=>{});PL()}
 async function deleteProgress(id){Promise.all([fetch((state.backendUrl||'')+'/api/progress/delete',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({id})}),fetch((state.backendUrl||'')+'/api/watchlist/remove',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({id})})]).catch(()=>{});PL()}
 
-function W(){return'<div class="welcome"><div class="welcome-card"><h1 style="color:var(--primary)">web-streaming <span class="beta-tag">beta</span></h1><p style="color:var(--primary)">a simple streaming site that simply works.</p><ul class="welcome-list" style="color:var(--primary)"><li>simply doesn\'t spam ads</li><li>simply doesn\'t break half the time</li><li>simply just works</li></ul><p style="color:var(--primary)">everything runs on 5-10 CAD currently...(hosting and domain)</p><p style="font-size:13px;color:#f59e0b;font-weight:600">it is recommended to disable adblockers while using this site. the embeds load way faster without. some embed providers glitch some episodes / shows so just choose another one and move on. this was annoying to make but worth!!! <br> NOTE: IF YOU LIKE DOWNLOADING EPISODES PLEASE DOWNLOAD THE ADD-ON TO THIS WEBSITE (extension because browser is limited with downloader stuff) <br> <a href="https://i.imgur.com/SNLuLwY.png"><u>DOWNLOAD GUI</u></a></p><p style="font-size:13px;margin-top:8px"><a href="#" onclick="navigate(\'notice\');return false" style="color:var(--primary)">view full project build</a></p><p style="color:var(--text-muted);font-size:10px;margin-top:2px">1.0.2</p><button class="btn btn-primary" style="margin-top:20px;font-size:16px;padding:14px 48px" onclick="navigate(\'home\')">enter</button></div></div>'}
+function W(){return'<div class="welcome"><div class="welcome-card"><h1 style="color:var(--primary)">web-streaming <span class="beta-tag">beta</span></h1><p style="color:var(--primary)">a simple streaming site that simply works.</p><ul class="welcome-list" style="color:var(--primary)"><li>simply doesn\'t spam ads</li><li>simply doesn\'t break half the time</li><li>simply just works</li></ul><p style="color:var(--primary)">everything runs on 5-10 CAD currently...(hosting and domain)</p><p style="font-size:13px;color:#f59e0b;font-weight:600">it is recommended to disable adblockers while using this site. the embeds load way faster without. some embed providers glitch some episodes / shows so just choose another one and move on. this was annoying to make but worth!!! <br> NOTE: IF YOU LIKE DOWNLOADING EPISODES PLEASE DOWNLOAD THE ADD-ON TO THIS WEBSITE (extension because browser is limited with downloader stuff) <br> <a href="https://chromewebstore.google.com/detail/web-streaming-addon/gelhkcjlpflgkghciolihlncmanjfhbb"><u>DOWNLOAD GUI</u></a></p><p style="font-size:13px;margin-top:8px"><a href="#" onclick="navigate(\'notice\');return false" style="color:var(--primary)">view full project build</a></p><p style="color:var(--text-muted);font-size:10px;margin-top:2px">1.0.2</p><button class="btn btn-primary" style="margin-top:20px;font-size:16px;padding:14px 48px" onclick="navigate(\'home\')">enter</button></div></div>'}
 function enterSite(){state.view='home';navigate('home')}
 
 function H(){return'<div class="loading-screen" id="HL"><div class="spinner"></div><p>loading...</p></div>'}
@@ -256,6 +256,9 @@ async function playBest(){
 async function playSource(hash,fi,title,embedUrl){
   state.prevState={view:state.view,data:state.data}
   if(embedUrl){
+    const activeSource=(state._sources||[]).find(source=>source.hash===hash||source.embedUrl===embedUrl)
+    state._embedProvider=activeSource?.provider||state._embedProvider||''
+    state._embedUrl=embedUrl
     history.replaceState(null,'','#'+getDetailHash()+'&hash='+hash)
     state.view='player';document.title=title+' - web-streaming';qs('#main').innerHTML=ifr(embedUrl,title)
     // auto-save as watching
@@ -322,8 +325,9 @@ async function pvPlay(){
   try{srcs=await api('GET','/api/show/'+state.data.id+'/sources?title='+encodeURIComponent(title)+'&year='+year+'&type=tv&season='+season+'&episode='+episode)}catch{}
   if(!srcs||!srcs.length)return
   state._sources=srcs
-  const src=srcs[0]
+  const src=srcs.find(source=>source.provider===state._embedProvider)||srcs[0]
   if(src.embedUrl){
+    state._embedProvider=src.provider||state._embedProvider||''
     state._embedUrl=src.embedUrl
     qs('#main').innerHTML=ifr(src.embedUrl,title+' S'+String(season).padStart(2,'0')+'E'+String(episode).padStart(2,'0'))
   }
