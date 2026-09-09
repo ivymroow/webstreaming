@@ -34,6 +34,11 @@ function createApp() {
   app.use((req, res, next) => { res.set('Cache-Control', 'no-store, no-cache, must-revalidate'); next(); });
   app.use(express.json({ limit: '1mb' }));
   app.use(rateLimit);
+  app.get('/firefox/web-streaming-addon-1.0.1.xpi', (req, res) => {
+    res.type('application/x-xpinstall');
+    res.set('Content-Disposition', 'inline; filename="web-streaming-addon-1.0.1.xpi"');
+    res.sendFile(path.join(env.publicDir, 'firefox', 'web-streaming-addon-1.0.1.xpi'));
+  });
   app.use(express.static(env.publicDir, { maxAge: env.isProduction ? '1h' : 0 }));
 
   app.get('/health', (req, res) => {
