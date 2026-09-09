@@ -45,7 +45,7 @@ function createApp() {
   });
 
   app.get('/download', (req, res) => {
-    res.redirect(302, 'https://chromewebstore.google.com/detail/web-streaming-addon/gelhkcjlpflgkghciolihlncmanjfhbb');
+    res.sendFile(path.join(env.publicDir, 'download.html'));
   });
 
   app.use('/api', mediaRoutes);

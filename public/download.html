@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>download - web-streaming</title>
+<meta name="theme-color" content="#6c5ce7">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/variables.css?v=3">
+<link rel="stylesheet" href="assets/css/layout.css?v=3">
+<link rel="stylesheet" href="assets/css/components.css?v=3">
+<link rel="stylesheet" href="assets/css/player.css?v=3">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='12' fill='%236c5ce7'/%3E%3Ctext x='50' y='70' text-anchor='middle' font-family='monospace' font-weight='900' font-size='44' fill='%23000'%3EWS%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+  <div id="app">
+    <header id="mainHeader">
+      <div class="header-left"><a href="/" class="logo">web-streaming</a></div>
+      <div class="header-center"></div>
+      <div class="header-right"></div>
+    </header>
+
+    <main id="main">
+      <div style="max-width:800px;margin:0 auto;padding:32px">
+        <a class="detail-back" href="/">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+          back
+        </a>
+
+        <div class="ns">
+          <h2>download the add-on</h2>
+          <p style="color:var(--primary);font-size:14px;line-height:1.8">add the download gui to web-streaming and save detected video streams from the player.</p>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">
+          <div class="ns" style="margin:0;display:flex;flex-direction:column;min-height:210px">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+              <div style="width:44px;height:44px;border-radius:12px;background:#fff;color:#4285f4;display:grid;place-items:center;font-size:24px;font-weight:800">C</div>
+              <div><h2 style="margin:0">chrome</h2><p style="color:#4ade80;font-size:12px;margin:4px 0 0">available now</p></div>
+            </div>
+            <p style="color:var(--text-muted);font-size:13px;line-height:1.7;flex:1">install the official web-streaming-addon from the chrome web store.</p>
+            <a class="btn btn-primary" href="https://chromewebstore.google.com/detail/web-streaming-addon/gelhkcjlpflgkghciolihlncmanjfhbb" target="_blank" rel="noopener noreferrer" style="justify-content:center;text-decoration:none">get for chrome</a>
+          </div>
+
+          <div class="ns" style="margin:0;display:flex;flex-direction:column;min-height:210px;opacity:.72">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+              <div style="width:44px;height:44px;border-radius:12px;background:#201431;color:#ff9500;display:grid;place-items:center;font-size:24px;font-weight:800">F</div>
+              <div><h2 style="margin:0">firefox</h2><p style="color:#f59e0b;font-size:12px;margin:4px 0 0">pending</p></div>
+            </div>
+            <p style="color:var(--text-muted);font-size:13px;line-height:1.7;flex:1">the firefox version is being prepared and signed. download will be added here when it is ready.</p>
+            <button class="btn btn-secondary" type="button" disabled style="justify-content:center;cursor:not-allowed">coming soon</button>
+          </div>
+        </div>
+
+        <p style="color:var(--text-muted);font-size:12px;margin-top:18px;text-align:center"><a href="/privacy" style="color:var(--primary)">extension privacy policy</a></p>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
