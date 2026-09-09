@@ -1,7 +1,12 @@
 {
   "addons": {
     "web-streaming-addon@web-streaming.site": {
-      "updates": []
+      "updates": [
+        {
+          "version": "1.0.1",
+          "update_link": "https://web-streaming.site/firefox/web-streaming-addon-1.0.1.xpi"
+        }
+      ]
     }
   }
 }
